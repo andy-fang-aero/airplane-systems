@@ -32,6 +32,7 @@
  * - ice.ts — TKS ice protection hardware, present only with FIKI (AMM 30-00)
  * - oxygen.ts — built-in oxygen: bottle, regulator, supply line, overhead manifold and outlets, control panel, filler station
  * - electrical-harness.ts — electrical harness and circuit protection
+ * - cowl-fasteners.ts — the ring of front cowl fasteners behind the spinner (illustrative), last so earlier part ids hold
  *
  * The sections are imported below in registration order. Part ids come from a running counter and the first part with a
  * given name gets the label pin, so keep this order, and never import a section from one that comes before it here.
@@ -209,6 +210,7 @@ import "./controls-trim";
 export { TKS_TANK } from "./ice";
 export { OXY } from "./oxygen";
 import "./electrical-harness";
+import "./cowl-fasteners";
 
 export { FIN } from "../geometry";
 export type { PartSpec } from "@/lib/catalogue";
