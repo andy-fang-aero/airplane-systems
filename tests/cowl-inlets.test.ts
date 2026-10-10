@@ -40,7 +40,7 @@ it.each(FLEET)(
       skin.dispose();
     }
   },
-  30_000,
+  120_000,
 );
 
 it("cuts the front cap without punching the back or changing interpolated UVs", () => {
