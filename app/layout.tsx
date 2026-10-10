@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Saira_Condensed } from "next/font/google";
 import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/next";
+import { vercelAnalytics } from "@/lib/staticExport";
 import "./globals.css";
 
 const disp = Saira_Condensed({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-disp" });
@@ -37,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         {children}
-        <Analytics />
+        {vercelAnalytics(process.env.NEXT_PUBLIC_STATIC_EXPORT) && <Analytics />}
       </body>
     </html>
   );

@@ -16,6 +16,9 @@
     "format:check": "prettier --check .",
     "check": "npm run format:check && npm run typecheck && npm test",
     "shot": "node scripts/shot.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "test:deploy": "vitest run --config vitest.deploy.config.mts",
+    "deploy:aws": "bash scripts/deploy-aws.sh",
     "trace": "node scripts/trace-airframes.mjs",
     "prepare": "git config core.hooksPath .githooks || true"
   },
