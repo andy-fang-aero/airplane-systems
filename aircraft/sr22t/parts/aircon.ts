@@ -14,7 +14,7 @@ import { botY, box, cyl } from "../geometry";
 import { acCompressorOn } from "../model";
 import { useSR22T } from "../store";
 import { part } from "./catalogue";
-import { valveEnv } from "./environment";
+import { BLOWER, valveEnv } from "./environment";
 
 /* ---------- air conditioning ---------- */
 // R134A vapor cycle: compressor → condenser → receiver-drier → expansion valve → evaporator → compressor (POH 7-65;
@@ -51,13 +51,14 @@ export const AC: Record<
   receiver: [-0.115, condY + 0.01, 0.1],
   blower: [-0.08, condY + 0.006, -0.06],
   // under the front passenger (RH crew) seat (POH 7-64; AMM 21-50 PDF p. 496), forward of the main spar and wing attach
-  // fittings and above the static water trap; position approximate
-  evaporator: [1.225, -0.562, 0.33],
-  expansion: [1.11, -0.552, 0.38],
+  // fittings, over the TKS feed lines and inboard of the OAT 1 data run; outboard of the blower bolted to its inboard end
+  // (parts/environment.ts BLOWER, placed from the FS 143.5 front seat); position approximate
+  evaporator: [BLOWER[0], BLOWER[1] - 0.03, BLOWER[2] + 0.15],
+  expansion: [BLOWER[0] - 0.115, BLOWER[1] - 0.02, BLOWER[2] + 0.2],
   // on top of the evaporator cover (POH Fig 7-14 RECIRCULATION CHECK VALVE)
-  recircValve: [1.225, -0.522, 0.33],
+  recircValve: [BLOWER[0], BLOWER[1] + 0.01, BLOWER[2] + 0.15],
   // cabin air under the RH crew seat, aft of the evaporator, drawn in through the cover in recirculation
-  recircInlet: [1.06, -0.49, 0.33],
+  recircInlet: [BLOWER[0] - 0.165, BLOWER[1] + 0.025, BLOWER[2] + 0.15],
 };
 /** LH upper-rear AND20000 accessory drive pad on the accessory mounting face: Continental M-18 Fig 5-33 rear view (p. 5-53,
  * PDF p. 148) "PAD IAW AND20000", centre about 5.8 in. above and 2.5 in. left of the crankshaft CL (scaled, ±0.3 in.).
