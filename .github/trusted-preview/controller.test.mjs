@@ -69,7 +69,13 @@ export function harness() {
   const io = {
     gh: async (method, path, body) => {
       if (method === "POST" && path.endsWith("/check-runs")) {
-        const c = { id: state.checks.length + 1000, app: { id: p.githubActionsAppId }, ...clone(body) };
+        const c = {
+          id: state.checks.length + 1000,
+          app: { id: p.githubActionsAppId },
+          ...clone(body),
+          check_suite: { id: 8001 },
+        };
+        c.details_url = `https://github.com/${p.repository}/runs/${c.id}`;
         state.checks.push(c);
         state.writes.push(clone(c));
         if (state.injectDuplicateClaim && body.name === CLAIM) state.checks.push({ ...clone(c), id: c.id + 100 });
@@ -103,12 +109,15 @@ export function harness() {
       if (path.includes("/issues/comments/100")) return clone(state.comments[0]);
       if (path.includes("/actions/runs/"))
         return {
+          id: runtime.runId,
+          check_suite_id: 8001,
+          head_repository: { id: pr.head.repo.id },
           event: "pull_request_target",
           path: p.workflowPath,
           run_attempt: 1,
           actor: { id: user.id },
           repository: { id: p.repositoryId },
-          head_sha: runtime.workflowSha,
+          head_sha: pr.head.sha,
           ...state.runOverride,
         };
       if (path.includes("/commits/") && path.includes("/pulls?")) return [clone(state.pr)];
@@ -647,3 +656,20 @@ test("approved machine-account ID can endorse and authorize its own fork PR", as
   await endorse(h);
   assert.equal((await run(h)).result, "approval_http_success_deployment_unverified");
 });
+
+for (const [name, runOverride] of [
+  ["different check suite", { check_suite_id: 9999 }],
+  ["different run ID", { id: 9999 }],
+  ["different head SHA", { head_sha: "c".repeat(40) }],
+  ["different source fork", { head_repository: { id: 9999 } }],
+  ["different event", { event: "pull_request" }],
+  ["rerun", { run_attempt: 2 }],
+  ["different actor", { actor: { id: 9999 } }],
+])
+  test("endorsement rejects " + name, async () => {
+    const h = harness();
+    await endorse(h);
+    h.state.runOverride = runOverride;
+    assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+    assert.equal(h.state.posts.length, 0);
+  });
