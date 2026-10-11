@@ -4,7 +4,7 @@ This workflow approves the native Vercel fork deployment for explicitly trusted 
 
 ## Current rollout state
 
-Installed **disabled** pending manual credential handoff and a new live canary. Both job guards contain `false &&`; `policy.json` has `enabled: false`. Activation of this workflow, including draft PRs, has been authorized by the repository owner. Existing PRs need a new authenticated eligible PR event; they are not grandfathered in. PR38 is permanently excluded from this controller and must not be retried.
+Enabled after the owner saved the project-only token in the main-only environment. Draft PRs qualify. A fresh live canary is used to verify the complete approval and publication path. Set `policy.json` to `enabled: false` to stop new operations. Existing PRs need a new authenticated eligible PR event; they are not grandfathered in. PR38 is permanently excluded from this controller and must not be retried.
 
 The approved numeric GitHub IDs are `11378800` (ligolnik) and `340809365` (andy-fang-aero). Opener, fork owner, and authenticated event actor must be allowlisted. Names, author emails, and contributor labels do not grant trust. The fixed Vercel project is `prj_N5tnGlRaJT3WVu4V4ev0bQZcItDw` in team `team_Coqz1m7hJ3KWZhlNgdpK98Y2`.
 
@@ -25,7 +25,7 @@ The approved credential is one non-expiring Vercel project-only read/write token
 
 The owner must enter its value directly into the `VERCEL_APPROVAL_TOKEN` environment secret in GitHub environment `trusted-preview-approval`. That environment must allow only the `main` branch. The agent must not inspect, copy, log, transmit, or use the token. No GitHub PAT is required.
 
-After confirming that the environment secret exists (metadata only), set `enabled: true` and remove the two literal false job guards in a reviewed main-branch change. Run a new harmless draft canary from andy-fang-aero; never merge it. Verify the endorsement/check API contract, authorization, exact READY Preview, finite 24-hour expiry, anonymous access, and a single correct comment. Verify a duplicate event does not reapprove and a fresh commit updates the same comment. On failure disable the policy and retain evidence. Never retry an uncertain mutation blindly.
+The environment secret was confirmed by metadata only. Run a new harmless draft canary from andy-fang-aero; never merge it. Verify the endorsement/check API contract, authorization, exact READY Preview, finite 24-hour expiry, anonymous access, and a single correct comment. Verify a duplicate event does not reapprove and a fresh commit updates the same comment. On failure disable the policy and retain evidence. Never retry an uncertain mutation blindly.
 
 ## Checks and limitations
 
