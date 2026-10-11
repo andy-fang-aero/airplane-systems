@@ -16,6 +16,7 @@
   "teamSlug": "andyfangs-projects",
   "projectName": "airplane-systems",
   "publishPublicLinks": true,
-  "shareTtlSeconds": 86400,
-  "githubActionsBotId": 41898282
+  "shareTtlSeconds": null,
+  "githubActionsBotId": 41898282,
+  "approvedUpdateSenderIds": [3586644]
 }
