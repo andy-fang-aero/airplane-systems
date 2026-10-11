@@ -3,7 +3,7 @@ import { V, toVec3, type Vec3 } from "@/lib/math";
 import { botY, box, cyl, onSkin, sph, topY, wC, wLE, wY, wingP } from "../geometry";
 import { useSR22T } from "../store";
 import { part } from "./catalogue";
-import { REAR_CUSHION_X } from "./cabin";
+import { FRONT_CUSHION_X, REAR_CUSHION_X } from "./cabin";
 
 /* ---------- lights ---------- */
 const tipAt = (s: number): Vec3 => [wLE(5.84) - 0.5 * wC(5.84), wY(5.84), s * 5.85];
@@ -79,9 +79,11 @@ part(() => box(0.03, 0.008, 0.016), ["lighting", "cabin"], {
  * (POH 7-59). One per modelled seat (cabin.ts), the rear bench centre position open; positions approximate.
  */
 const REAR_READING_X = REAR_CUSHION_X - 0.1; // POH 7-59: above each passenger, offsets approximate
+// Front pair over the FS 143.5 front occupants (cabin.ts FRONT_SEAT, POH Fig 6-3), outboard of the CAPS recess; approximate.
+const FRONT_READING_X = FRONT_CUSHION_X - 0.17;
 const READING_LIGHTS: Vec3[] = [
-  [1.08, 0.6, -0.3],
-  [1.08, 0.6, 0.3],
+  [FRONT_READING_X, 0.6, -0.3],
+  [FRONT_READING_X, 0.6, 0.3],
   [REAR_READING_X, topY(REAR_READING_X) - 0.1, -0.24],
   [REAR_READING_X, topY(REAR_READING_X) - 0.1, 0.28],
 ];

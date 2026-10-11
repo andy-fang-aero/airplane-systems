@@ -8,7 +8,7 @@ import { toVec3, type Vec3 } from "@/lib/math";
 import { HH, box, botY, cyl, fLE, hingeX, topY, tubeGeo, wingP } from "../geometry";
 import { useSR22T } from "../store";
 import { part } from "./catalogue";
-import { REAR_SEAT, STACK } from "./cabin";
+import { FRONT_CUSHION_X, FRONT_SEAT, REAR_SEAT, STACK } from "./cabin";
 
 /* ---------- avionics ---------- */
 // GDU 1050A bezels around the 0.211 × 0.158 m screens (Airplane.tsx SCREENS), sized from the Pilot's Guide drawing (approximate):
@@ -73,7 +73,9 @@ export const GDL_69A: Vec3 = [-0.78, -0.08, 0.19];
 export const GATEWAY: Vec3 = [-0.59, -0.03, 0.33];
 export const GSR_56: Vec3 = [-0.7, -0.16, -0.205];
 export const WX_500: Vec3 = [0, botY(0) + 0.09, -0.25];
-export const GTS_800: Vec3 = [1.2, -0.5, -0.33];
+/** Under the forward half of the LH crew seat cushion (POH 7-84, Fig 7-20 item 30), forward of the wing and pitot heat
+ * harness runs and outboard of the ELT remote cable under the seat pan; offsets from the cushion approximate. */
+export const GTS_800: Vec3 = [FRONT_CUSHION_X + 0.18, -0.5, -FRONT_SEAT.z - 0.025];
 export const KN_63: Vec3 = [2.1, -0.53, -0.38];
 export const MAG_1: Vec3 = toVec3(wingP(4.8, 0.45, 0));
 /** MAG 2 "adjacent to the first" (AMM 34-20 PDF p. 1675), on the same mounting plate (AMM Fig 34-20-3 sheet 1, PDF p. 1689);
@@ -192,10 +194,11 @@ part(() => cyl(0.06, 0.02), ["avionics"], {
   pin: true,
 });
 part(() => box(0.03, 0.06, 0.02), ["avionics"], {
-  pos: [1.3, -0.3, -0.14],
+  // Beside the aft half of the pilot's cushion, just aft of the circuit breaker panel on the same console face; approximate.
+  pos: [FRONT_CUSHION_X - 0.04, -0.3, -0.14],
   color: FAN_HOUSING,
   name: "Cabin microphone",
-  note: 'Fig 7-20 item 29, "Microphone": beside the centre console between the front seats, about mid-cushion (POH 7-88; the plan view does not show its height); position approximate. Supply: no breaker of its own; it feeds the GMA 350 intercom, and the audio panel takes 28 VDC through the 5 A AUDIO PANEL circuit breaker on AVIONICS (POH 7-78; AMM 23-50 PDF p. 650).',
+  note: 'Fig 7-20 item 29, "Microphone": beside the centre console between the front seats, alongside the cushions just aft of the circuit breaker panel (POH 7-88; the plan view does not show its height); position approximate. Supply: no breaker of its own; it feeds the GMA 350 intercom, and the audio panel takes 28 VDC through the 5 A AUDIO PANEL circuit breaker on AVIONICS (POH 7-78; AMM 23-50 PDF p. 650).',
   pin: true,
 });
 

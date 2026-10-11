@@ -299,32 +299,67 @@ part(() => box(0.4, 0.18, 0.02), ["electrical"], {
  */
 export const REAR_SEAT = { referenceX: fsX(180), cushionOffset: 0.18, cushionLength: 0.4, backOffset: -0.04 };
 export const REAR_CUSHION_X = REAR_SEAT.referenceX + REAR_SEAT.cushionOffset;
+/**
+ * Front occupant loading reference: POH 13772-007 Fig 6-3 Loading Data (PDF p. 222), FS 143.5 for the pilot and front
+ * passenger. Unlike REAR_SEAT, whose cushion runs forward from its occupant arm, the front cushion straddles the arm: the
+ * arm sits on the cushion, about a third of its length from the aft edge (cushion FS ~131–150, centre FS ~140), and the
+ * reclined back rises from the cushion's aft edge (centre FS ~150.3). A seated occupant's CG lies forward of the seat back;
+ * placed this way the main spar and the two forward wing attach points sit under the front seats, as POH 7-5 / 7-6 state,
+ * and the cushion's forward edge stays aft of the static plumbing under the alternate static valve on the console face
+ * (POH Fig 7-4 item 14) and 0.19 m aft of the yokes. A cushion entirely forward of the arm would reach FS ~125.6, leave
+ * the spar aft of the seat and run into that plumbing.
+ * The seats slide on an upward-angled fore/aft track (POH 7-27; AMM 13773-002 Rev 7 25-10, Fig 25-10-1, PDF p. 811,
+ * undimensioned); the model draws them at the loading arm. Cushion and back dimensions and the offsets from the occupant
+ * arm are approximate (dimensions unchanged from the earlier hand-set seats). `z` (cushion centre off the centreline),
+ * `backZ` and `lift` (above the rear row) are approximate too: 3.5 cm higher for the upward-angled track (POH 7-27), which
+ * lifts the pans over the wing harness and pitot heat wiring runs under them; cushions 3.5 cm further outboard than
+ * before, between the circuit breaker panel and alternate static knob on the console's left side (POH 7-50, Fig 7-4 item
+ * 14) and the CAPS forward harness straps along the cabin wall (POH 7-96); backs 1 cm further outboard, clear of the door
+ * armrests (POH 7-31).
+ */
+export const FRONT_SEAT = {
+  referenceX: fsX(143.5),
+  cushionOffset: 0.085,
+  cushionLength: 0.48,
+  backOffset: -0.175,
+  z: 0.365,
+  backZ: 0.34,
+  lift: 0.035,
+};
+export const FRONT_CUSHION_X = FRONT_SEAT.referenceX + FRONT_SEAT.cushionOffset;
+/** Front seat back centre: the shoulder line the CAPS handle is placed over. */
+export const FRONT_BACK_X = FRONT_SEAT.referenceX + FRONT_SEAT.backOffset;
 (
   [
-    [1.25, -0.33, "Pilot seat", 0.4],
-    [1.25, 0.33, "Front passenger seat", 0.4],
+    [FRONT_CUSHION_X, -FRONT_SEAT.z, "Pilot seat", 0.4],
+    [FRONT_CUSHION_X, FRONT_SEAT.z, "Front passenger seat", 0.4],
     [REAR_CUSHION_X, -0.24, "Rear seat (2+1 bench)", 0.46],
     [REAR_CUSHION_X, 0.28, "Rear seat", 0.4],
   ] as [number, number, string, number][]
 ).forEach(([x, z, name, w], i) => {
-  part(() => box(i < 2 ? 0.48 : REAR_SEAT.cushionLength, 0.1, w), ["cabin"], {
-    pos: [x, -0.4, z],
+  const back = i < 2 ? Math.sign(z) * FRONT_SEAT.backZ : z;
+  part(() => box(i < 2 ? FRONT_SEAT.cushionLength : REAR_SEAT.cushionLength, 0.1, w), ["cabin"], {
+    pos: [x, -0.4 + (i < 2 ? FRONT_SEAT.lift : 0), z],
     color: "#6B5A48",
     name,
     note:
       i < 2
-        ? "Adjusts fore/aft on an upward-angled track. Honeycomb core crushes to absorb vertical impact — never stand on it."
+        ? "Adjusts fore/aft on an upward-angled track (POH 7-27). Honeycomb core crushes to absorb vertical impact — never stand on it. The FS 143.5 front occupant reference (POH Fig 6-3) sits on the cushion; the main spar and forward wing attach points pass under it (POH 7-5, 7-6). Cushion dimensions and offset from that occupant arm approximate."
         : "Seat backs split 60/40 and fold forward for long cargo (POH 7-28). Aft passenger reference FS 180 (POH Fig 6-3, 6-6); cushion dimensions and offset from that occupant arm approximate.",
     pin: true,
   });
   part(() => box(0.09, 0.58, w * 0.92), ["cabin"], {
-    pos: [i < 2 ? x - 0.27 : REAR_SEAT.referenceX + REAR_SEAT.backOffset, -0.08, z],
+    pos: [
+      i < 2 ? FRONT_BACK_X : REAR_SEAT.referenceX + REAR_SEAT.backOffset,
+      -0.08 + (i < 2 ? FRONT_SEAT.lift : 0),
+      back,
+    ],
     rot: [0, 0, 0.2],
     color: "#6B5A48",
     name,
     note:
       i < 2
-        ? "4-point harness with inflatable shoulder belt (airbag)."
+        ? "4-point harness with inflatable shoulder belt (airbag); the inflator is on the aft seat frame (POH 7-28). Reclined back at the cushion's aft edge, aft of the FS 143.5 occupant reference (POH Fig 6-3); shape and offset approximate."
         : "3-point harness on inertia reels at the baggage compartment rear bulkhead (POH 7-28). Reclined back ahead of FS 186 (AMM Fig 27-20-5, PDF p. 1005); shape and offset from the FS 180 occupant reference approximate.",
   });
 });
@@ -458,8 +493,9 @@ part(() => box(0.04, 0.03, 0.04), ["fuel"], {
  * (PDF p. 2853) supplies the aft cable route. Dimensions, recess profile and extraction timing are schematic.
  */
 // POH 13772-007 7-96: above the pilot's right shoulder; Fig 7-4 (7-14) item 1 shows the overhead cover.
-// x=1.0 is an illustrative station over the front seat backs, aft of their forward shoulder face, not a measured POH value.
-export const CAPS_HANDLE_POS: Vec3 = [1.0, 0.63, 0];
+// Station: over the reclined front seat back's top, the occupant's shoulder line (FRONT_SEAT, FS 143.5 occupant, POH Fig
+// 6-3): 0.07 m forward of the back centre, FS ~147.6; approximate, not a measured POH value.
+export const CAPS_HANDLE_POS: Vec3 = [FRONT_BACK_X + 0.07, 0.63, 0];
 export const CAPS_HANDLE_HEIGHT = 0.1; // Retained stem length; now horizontal along x.
 export const CAPS_HANDLE_ATTACH: Vec3 = [
   CAPS_HANDLE_POS[0] - CAPS_HANDLE_HEIGHT / 2 + 0.005,

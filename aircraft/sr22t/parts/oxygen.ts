@@ -32,7 +32,8 @@ const roofY = (x: number, z: number) => {
 };
 /**
  * Overhead console: AFMS Fig 1 "distribution manifold with integral LED dome light", so it sits on the POH 7-59 dome
- * light (`LIGHTS.dome`), whose lens is on its lower face. Forward of the CAPS cover and cabin speaker. No source
+ * light (`LIGHTS.dome`), whose lens is on its lower face. Aft of the CAPS cover, which sits over the front occupants'
+ * shoulder line (POH 7-96), and forward of the cabin speaker. No source
  * dimensions the console; 0.16 × 0.025 × 0.20 m is approximate, sized to carry five ports abreast plus the lens.
  */
 const MANIFOLD_SIZE: Vec3 = [0.16, 0.025, 0.2];
