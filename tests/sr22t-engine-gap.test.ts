@@ -1,9 +1,10 @@
 /** The shared engine-gap audit places every part group at its Airplane.tsx rest pose and refuses unknown groups. */
-import { Box3, Euler, Matrix4, Quaternion } from "three";
+import { Box3, BoxGeometry, Euler, Matrix4, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { CAT, NOSE_CASTER, NOSE_GEAR, PROP } from "@/aircraft/sr22t/parts";
 import { toV } from "@/lib/math";
 import { solid } from "./sr22t-engine-gap";
+import { ignitionSolid, ignitionIntersects } from "./sr22t-ignition-clearance";
 
 const localBox = (p: (typeof CAT.parts)[number]) => {
   const g = p.geo();
@@ -53,4 +54,46 @@ describe("sr22t-engine-gap solid()", () => {
       /no rest-pose transform for part group "wingFold:L"/,
     );
   });
+});
+
+it("the ignition oracle detects a collision at the rendered nose-gear position", () => {
+  const part = CAT.parts.find((p) => p.parent === "noseGear")!;
+  const geometry = part.geo();
+  geometry.translate(...NOSE_GEAR);
+  const positions = geometry.getAttribute("position"),
+    index = geometry.index;
+  const center = new Vector3();
+  for (let i = 0; i < 3; i++) center.add(new Vector3().fromBufferAttribute(positions, index ? index.getX(i) : i));
+  center.divideScalar(3);
+  const strut = ignitionSolid(part);
+  const probe = ignitionSolid({
+    id: "probe",
+    sys: ["engine"],
+    geo: () => new BoxGeometry(0.01, 0.01, 0.01),
+    pos: center.toArray(),
+  });
+  try {
+    expect(ignitionIntersects(probe, strut)).toBe(true);
+  } finally {
+    geometry.dispose();
+    strut.g.dispose();
+    probe.g.dispose();
+  }
+});
+
+it("both clearance oracles place every parent group in the same rest pose", () => {
+  const parents = new Set(CAT.parts.map((p) => p.parent));
+  for (const parent of parents) {
+    const part = { ...CAT.parts.find((p) => p.parent === parent)!, geo: () => new BoxGeometry(0.1, 0.1, 0.1) };
+    const ignition = ignitionSolid(part),
+      expected = solid(part).box;
+    try {
+      expect(ignition.box.min.distanceTo(expected.min), parent).toBeLessThan(1e-6);
+      expect(ignition.box.max.distanceTo(expected.max), parent).toBeLessThan(1e-6);
+    } finally {
+      ignition.g.dispose();
+    }
+  }
+  const part = CAT.parts.find((p) => !p.parent)!;
+  expect(() => ignitionSolid({ ...part, parent: "wingFold:L" })).toThrow(/no rest-pose transform/);
 });
