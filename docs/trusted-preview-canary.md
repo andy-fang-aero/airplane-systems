@@ -10,3 +10,5 @@ Revision 3 exercises current-SHA Vercel status authentication.
 Revision 4 exercises the verified Unix-seconds share expiry contract.
 
 Revision 5 exercises PR comment permissions and safe publication diagnostics.
+
+Revision 6 verifies that the existing bot comment updates to the current SHA without duplication.
