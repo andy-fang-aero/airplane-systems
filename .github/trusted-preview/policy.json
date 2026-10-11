@@ -1,0 +1,21 @@
+{
+  "enabled": false,
+  "repository": "andyfangdz/airplane-systems",
+  "repositoryId": 1384478843,
+  "defaultBranch": "main",
+  "teamId": "team_Coqz1m7hJ3KWZhlNgdpK98Y2",
+  "projectId": "prj_N5tnGlRaJT3WVu4V4ev0bQZcItDw",
+  "approvedUserIds": [11378800, 340809365],
+  "proposedUserIdsPendingApproval": [],
+  "allowDrafts": true,
+  "excludedPrs": [38],
+  "vercelBotId": 35613825,
+  "githubActionsAppId": 15368,
+  "workflowPath": ".github/workflows/trusted-preview-approval.yml",
+  "policyPath": ".github/trusted-preview/policy.json",
+  "teamSlug": "andyfangs-projects",
+  "projectName": "airplane-systems",
+  "publishPublicLinks": true,
+  "shareTtlSeconds": 86400,
+  "githubActionsBotId": 41898282
+}

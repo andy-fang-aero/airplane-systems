@@ -1,0 +1,81 @@
+# Installed disabled pending manual credential handoff and live canary.
+name: Trusted fork preview approval
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+  issue_comment:
+    types: [created, edited]
+  status:
+permissions: {}
+jobs:
+  prepare:
+    if: >-
+      ${{ false && github.repository_id == '1384478843' &&
+          (github.event_name == 'pull_request_target' ||
+           (github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.comment.user.id == 35613825) ||
+           (github.event_name == 'status' && github.event.context == 'Vercel')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      checks: write
+    outputs:
+      candidates: ${{ steps.prepare.outputs.candidates }}
+    steps:
+      - name: Checkout only the trusted workflow commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: andyfangdz/airplane-systems
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: .github/trusted-preview
+          sparse-checkout-cone-mode: false
+      - id: prepare
+        name: Record trusted exact-SHA endorsement or resolve bot/status wake-up
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRUSTED_WORKFLOW_REF: ${{ github.workflow_ref }}
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: node .github/trusted-preview/controller.mjs prepare
+  approve:
+    if: ${{ false && needs.prepare.result == 'success' && needs.prepare.outputs.candidates != '[]' }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        candidate: ${{ fromJSON(needs.prepare.outputs.candidates) }}
+    # The prepare/endorsement job is intentionally outside this group so GitHub's
+    # replacement of pending jobs cannot discard the only trusted SHA endorsement.
+    concurrency:
+      group: trusted-vercel-approval-1384478843-pr-${{ matrix.candidate.pr }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: trusted-preview-approval
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+      statuses: read
+      actions: read
+      checks: write
+    steps:
+      - name: Checkout only the trusted workflow commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: andyfangdz/airplane-systems
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: .github/trusted-preview
+          sparse-checkout-cone-mode: false
+      - name: Authorize, verify Preview, share and update one PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERCEL_APPROVAL_TOKEN: ${{ secrets.VERCEL_APPROVAL_TOKEN }}
+          TRUSTED_WORKFLOW_REF: ${{ github.workflow_ref }}
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          CANDIDATE: ${{ toJSON(matrix.candidate) }}
+        run: node .github/trusted-preview/controller.mjs approve
