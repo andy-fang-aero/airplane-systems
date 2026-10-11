@@ -4,3 +4,5 @@ Temporary documentation-only test of automatic fork Preview approval and public 
 Do not merge this canary.
 
 Revision 2 exercises the verified GitHub check-suite provenance contract.
+
+Revision 3 exercises current-SHA Vercel status authentication.
