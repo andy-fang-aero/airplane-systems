@@ -245,22 +245,20 @@ async function gate(io, p, pr) {
   const list = state.statuses?.filter((s) => s.context === "Vercel") ?? [];
   if (list.length !== 1 || list[0].state !== "failure" || list[0].description !== "Authorization required to deploy.")
     return null;
-  const job = parseJob(p, list[0].target_url, pr);
-  const comments = await all(io, p, `/issues/${pr.number}/comments`);
-  const corroborated = comments.some(
-    (c) =>
-      bot(p, c.user) &&
-      c.issue_url === `https://api.github.com/repos/${p.repository}/issues/${pr.number}` &&
-      typeof c.body === "string" &&
-      [...c.body.matchAll(/https:\/\/vercel\.com\/git\/authorize\?[^\s<>]+/g)].some((m) => {
-        try {
-          return same(parseJob(p, m[0].replace(/[).,]+$/, ""), pr), job);
-        } catch {
-          return false;
-        }
-      }),
-  );
-  return corroborated ? job : null;
+  // The combined status omits creator. Vercel may leave its PR authorization
+  // comment on an older commit, so authenticate the latest full status instead.
+  const full = (await all(io, p, `/commits/${pr.head.sha}/statuses`)).find((s) => s.context === "Vercel");
+  if (
+    !full ||
+    !integer(full.id) ||
+    full.id !== list[0].id ||
+    !bot(p, full.creator) ||
+    full.state !== list[0].state ||
+    full.description !== list[0].description ||
+    full.target_url !== list[0].target_url
+  )
+    return null;
+  return parseJob(p, full.target_url, pr);
 }
 
 async function preflight(io, p, job) {
@@ -282,7 +280,7 @@ export async function approve(io, p, runtime, event, expected) {
   validatePr(p, pr, expected);
   if (!(await hasEndorsement(io, p, pr))) return { result: "no_trusted_sha_endorsement" };
   let job = null;
-  // Read-only polling handles either half of the bot-comment/status pair arriving first.
+  // Read-only polling handles the authenticated status arriving after the PR event.
   for (let attempt = 0; attempt < 4; attempt++) {
     job = await gate(io, p, pr);
     if (job) break;

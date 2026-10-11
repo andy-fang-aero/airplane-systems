@@ -55,7 +55,14 @@ export function harness() {
     status: {
       sha: pr.head.sha,
       statuses: [
-        { context: "Vercel", state: "failure", description: "Authorization required to deploy.", target_url: url },
+        {
+          id: 501,
+          creator: { id: p.vercelBotId, type: "Bot", login: "vercel[bot]" },
+          context: "Vercel",
+          state: "failure",
+          description: "Authorization required to deploy.",
+          target_url: url,
+        },
       ],
     },
     remotePolicy: clone(p),
@@ -104,7 +111,12 @@ export function harness() {
             ),
           ),
         };
-      if (path.endsWith("/status")) return clone(state.status);
+      if (path.endsWith("/status")) {
+        const combined = clone(state.status);
+        for (const s of combined.statuses) delete s.creator;
+        return combined;
+      }
+      if (path.includes("/statuses?")) return clone(state.fullStatuses ?? state.status.statuses);
       if (path.includes("/issues/40/comments?")) return clone(state.comments);
       if (path.includes("/issues/comments/100")) return clone(state.comments[0]);
       if (path.includes("/actions/runs/"))
@@ -261,10 +273,11 @@ test("bot wakeup before endorsement cannot approve; later PR event catches alrea
 });
 test("PR event before bot gate waits read-only; delayed bot comment triggers approval", async () => {
   const h = harness();
-  h.state.comments = [];
+  const pending = clone(h.state.status.statuses);
+  h.state.status.statuses = [];
   await endorse(h);
   assert.equal((await run(h)).result, "no_corroborated_pending_gate");
-  h.state.comments = [h.comment];
+  h.state.status.statuses = pending;
   h.runtime.eventName = "issue_comment";
   const e = { ...h.event, action: "edited", issue: { number: 40, pull_request: {} }, comment: h.comment };
   await prepare(h.io, h.p, h.runtime, e);
@@ -276,7 +289,14 @@ test("comment/status race resolves via read-only polling", async () => {
   h.state.status.statuses = [];
   h.state.onSleep = () => {
     h.state.status.statuses = [
-      { context: "Vercel", state: "failure", description: "Authorization required to deploy.", target_url: h.url },
+      {
+        id: 501,
+        creator: { id: h.p.vercelBotId, type: "Bot", login: "vercel[bot]" },
+        context: "Vercel",
+        state: "failure",
+        description: "Authorization required to deploy.",
+        target_url: h.url,
+      },
     ];
   };
   assert.equal((await run(h)).result, "approval_http_success_deployment_unverified");
@@ -305,10 +325,10 @@ for (const location of ["event", "api"])
     else h.state.comments[0].user.id = 123;
     await fail(h, () => prepare(h.io, h.p, h.runtime, e));
   });
-test("spoofed gate body cannot corroborate a status", async () => {
+test("untrusted status author cannot be corroborated by a genuine bot comment", async () => {
   const h = harness();
   await endorse(h);
-  h.state.comments[0].user.id = 123;
+  h.state.status.statuses[0].creator.id = 123;
   assert.equal((await run(h)).result, "no_corroborated_pending_gate");
   assert.equal(h.state.posts.length, 0);
 });
@@ -671,5 +691,47 @@ for (const [name, runOverride] of [
     await endorse(h);
     h.state.runOverride = runOverride;
     assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+    assert.equal(h.state.posts.length, 0);
+  });
+
+test("stale authorization comment does not block a genuine current-SHA Vercel status", async () => {
+  const h = harness();
+  await endorse(h);
+  h.state.comments[0].body = "An older commit requires authorization.";
+  assert.equal((await run(h)).result, "approval_http_success_deployment_unverified");
+  assert.equal(h.state.posts.length, 1);
+});
+for (const [name, edit] of [
+  [
+    "missing creator",
+    (s) => {
+      delete s.creator;
+    },
+  ],
+  [
+    "different status ID",
+    (s) => {
+      s.id++;
+    },
+  ],
+  [
+    "different URL",
+    (s) => {
+      s.target_url += "&changed=true";
+    },
+  ],
+  [
+    "different state",
+    (s) => {
+      s.state = "success";
+    },
+  ],
+])
+  test("full status refuses " + name, async () => {
+    const h = harness();
+    await endorse(h);
+    h.state.fullStatuses = clone(h.state.status.statuses);
+    edit(h.state.fullStatuses[0]);
+    assert.equal((await run(h)).result, "no_corroborated_pending_gate");
     assert.equal(h.state.posts.length, 0);
   });
