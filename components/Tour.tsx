@@ -34,8 +34,8 @@ const STEPS: Step[] = [
     title: "Pick an airplane",
     body: (
       <>
-        Switch between the SR20, 172S, 182T, DA40 and M20C. Each airplane keeps its own switch positions while you look
-        at another. Try one now.
+        Switch between the SR20, SR22T, 172S, 182T, DA40 and M20C. Each airplane keeps its own switch positions while
+        you look at another. Try one now.
       </>
     ),
   },

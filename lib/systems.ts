@@ -1,7 +1,7 @@
 import type { Vec3 } from "./math";
 
 /** Every airplane in the fleet. Each one lives in aircraft/<id>/. */
-export const AIRCRAFT_IDS = ["sr20", "c172s", "c182t", "da40", "m20c"] as const;
+export const AIRCRAFT_IDS = ["sr20", "sr22t", "c172s", "c182t", "da40", "m20c"] as const;
 export type AircraftId = (typeof AIRCRAFT_IDS)[number];
 export const isAircraftId = (v: unknown): v is AircraftId =>
   typeof v === "string" && (AIRCRAFT_IDS as readonly string[]).includes(v);

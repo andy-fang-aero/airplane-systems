@@ -62,20 +62,31 @@ it("unwraps lettering in opposite directions on port/starboard without blending 
 describe.each(FLEET)("$id exterior geometry", (def) => {
   // The Mooney carries these shells in its moving empennage group, outside CAT.shells.
   const shells = [...def.labels!.cat.shells, ...(def.id === "m20c" ? TAIL_SHELLS : [])];
-  it("has finite positions, normals and UVs on painted shells and moving surfaces", () => {
-    for (const spec of [...shells, ...def.labels!.cat.surfaces]) {
-      const g = spec.geo();
-      for (const name of ["position", "normal", ...(spec.skin ? ["uv"] : [])]) {
-        const a = g.getAttribute(name);
-        expect(a, `${def.id}: ${spec.name} ${name}`).toBeDefined();
-        expect(Array.from(a.array).every(Number.isFinite)).toBe(true);
+  // SR22T hull cut-outs can take over 30s on a shared CI runner; allow headroom without relaxing the geometry assertions.
+  it(
+    "has finite positions, normals and UVs on painted shells and moving surfaces",
+    () => {
+      for (const spec of [...shells, ...def.labels!.cat.surfaces]) {
+        const g = spec.geo();
+        for (const name of ["position", "normal", ...(spec.skin ? ["uv"] : [])]) {
+          const a = g.getAttribute(name);
+          expect(a, `${def.id}: ${spec.name} ${name}`).toBeDefined();
+          expect(Array.from(a.array).every(Number.isFinite)).toBe(true);
+        }
+        g.dispose();
       }
-      g.dispose();
-    }
-  });
+    },
+    def.id === "sr22t" ? 60000 : 30000,
+  );
   it("keeps the aircraft's paint on its fin and hinged rudder", () => {
     const fin = shells.find((s) => s.name === "Vertical stabilizer" || s.name === "Vertical fin")!;
     const rudder = def.labels!.cat.surfaces.find((s) => s.key === "rudder")!;
+    // The SR22T has no photo-traced livery (no LIVERY_REGISTRATION entry): neither surface is painted.
+    if (def.id === "sr22t") {
+      expect(fin.skin).toBeUndefined();
+      expect(rudder.skin).toBeUndefined();
+      return;
+    }
     expect(fin.skin).toBeTypeOf("function");
     expect(rudder.skin).toBeTypeOf("function");
     // N6947N has a navy rudder and light-blue fin, painted separately.

@@ -24,8 +24,26 @@ const Scene = dynamic(() => import("./scene/Scene"), {
 
 function Fleet() {
   const ac = useView((x) => x.ac);
+  const ref = useRef<HTMLDivElement>(null);
+  // more airplanes than the rail fits scroll sideways: keep the selected one in view, also when the rail resizes
+  useEffect(() => {
+    const strip = ref.current;
+    if (!strip) return;
+    const reveal = () => {
+      const b = strip.querySelector<HTMLElement>('button[aria-pressed="true"]');
+      if (!b) return;
+      const r = b.getBoundingClientRect(),
+        s = strip.getBoundingClientRect();
+      if (r.left < s.left) strip.scrollLeft -= s.left - r.left;
+      else if (r.right > s.right) strip.scrollLeft += r.right - s.right;
+    };
+    reveal();
+    const ro = new ResizeObserver(reveal);
+    ro.observe(strip);
+    return () => ro.disconnect();
+  }, [ac]);
   return (
-    <div className="fleet" role="group" aria-label="Airplane">
+    <div className="fleet" role="group" aria-label="Airplane" ref={ref}>
       {FLEET.map((a) => (
         <button key={a.id} type="button" aria-pressed={a.id === ac} title={a.name} onClick={() => selectAircraft(a.id)}>
           {a.short}

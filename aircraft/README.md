@@ -59,6 +59,10 @@ To add one:
   Values that change every frame (RPM, flap angle, timers) go in a mutable `live` object, not React state.
 - **Parts:** A part's `parent` puts it on a moving group that `Airplane.tsx` renders and animates
   (e.g. `"surf:elevR"` is added automatically by `<ControlSurfaces>`). `anim(mesh, t)` runs every frame for live material and position changes.
+- **SR22T engine groups:** An engine part or flow carries its Engine-view toggle groups as a `groups` option (`["oil"]`,
+  `["induction", "exhaust"]`; `[]` is core). Only `ENGINE_GROUPS` ids type-check, and an unknown tag throws at registration.
+  Untagged items fall back to the defaults in `engine-groups.ts`; the coverage test in `tests/sr22t-engine-groups.test.ts`
+  fails on any engine item that resolves to neither.
 - **Labels:** The first part with a given name and `pin: true` gets a label pin and a "tap to locate" entry (`CAT.pinned(sys)`).
   `pinIn` limits its label to some views. Where a view would pile labels up, the catalogue's label lists take over by part name:
   `quiet` (listed but not labelled in that view) and `narrow` (on the phone layout, only these are labelled). Names that match no pinned

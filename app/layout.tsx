@@ -21,7 +21,7 @@ const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variabl
 // for every view (next.config.ts rewrites /c172s/electrical etc. to it), then the airplane shown once mounted.
 export const metadata: Metadata = {
   description:
-    "Interactive 3D walkthroughs of airplane systems from POH/AFM Section 7: Cirrus SR20 G6, Cessna 172S and 182T NAV III, Diamond DA40 XLS, Mooney M20C Ranger.",
+    "Interactive 3D walkthroughs of airplane systems from POH/AFM Section 7: Cirrus SR20 G6 and SR22T G6, Cessna 172S and 182T NAV III, Diamond DA40 XLS, Mooney M20C Ranger.",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };

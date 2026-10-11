@@ -4,7 +4,8 @@
 import { paintAtlas, type PaintBox, type PaintPoint, type PaintText } from "@/lib/livery";
 import type { AircraftId } from "@/lib/systems";
 
-export const LIVERY_REGISTRATION: Record<AircraftId, string> = {
+/** The SR22T has no photo-traced livery yet. */
+export const LIVERY_REGISTRATION: Record<Exclude<AircraftId, "sr22t">, string> = {
   sr20: "N800KP",
   c172s: "N6189Q",
   c182t: "N8050J",
@@ -12,8 +13,8 @@ export const LIVERY_REGISTRATION: Record<AircraftId, string> = {
   m20c: "N6947N",
 };
 
-/** The M20C currently uses its own schematic painter in m20c/geometry.ts. */
-type AtlasAircraftId = Exclude<AircraftId, "m20c">;
+/** The M20C currently uses its own schematic painter in m20c/geometry.ts; the SR22T has no livery yet. */
+type AtlasAircraftId = Exclude<AircraftId, "m20c" | "sr22t">;
 
 type Section = "fuselage" | "tail";
 const INK = "#172029",

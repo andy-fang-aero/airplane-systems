@@ -8,6 +8,8 @@ const pair = (y: number, z: number, width: number, height: number, exponent: num
 export const COWL_INLETS: Record<AircraftId, CowlInlet[]> = {
   // The M20C nose is schematic; no calibrated inlet outlines are available yet.
   m20c: [],
+  // The SR22T skin is not cut; its cowl inlets are modelled as their own parts in aircraft/sr22t.
+  sr22t: [],
   sr20: pair(-0.13, 0.22, 0.15, 0.15, 2, 3.4),
   c172s: [
     ...pair((53.3 - 49.25) * 0.0254, 10.4 * 0.0254, 0.245, 0.185, 3.2, 3.2),
