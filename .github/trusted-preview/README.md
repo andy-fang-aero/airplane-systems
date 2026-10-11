@@ -19,6 +19,8 @@ The approved numeric GitHub IDs are `11378800` (ligolnik) and `340809365` (andy-
 
 Links are public bearer URLs: anyone reading the PR can use or forward them. Older links expire naturally; this workflow does not renew links or remove comment history. Project-wide deployment protection remains enabled. Preview code runs with Vercel's configured Preview environment, integrations, and OIDC trust, so changes to those settings require renewed scope review.
 
+The privileged job uses `pull-requests: write` for its PR comment and `issues: read` for comment discovery. Publication failures report only a fixed stage and sanitized refusal code; raw API responses, bearer links, and credentials are never included. A failed comment/check operation still retains its publication claim and is not automatically replayed.
+
 ## Credential handoff and activation
 
 The approved credential is one non-expiring Vercel project-only read/write token named `airplane-systems-trusted-preview-action`. It can affect production resources in the same project; it is not restricted to the approval endpoint. Never widen it to All Projects or Full Account. Do not reuse the expired PR38 token.

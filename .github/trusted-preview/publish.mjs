@@ -11,6 +11,11 @@ import {
 } from "./controller.mjs";
 export const PUBLISH = "Trusted preview: public link publication";
 export const COMMENT_MARKER = "<!-- trusted-vercel-preview:v1 -->";
+// Only our fixed refusal codes may enter logs; never exception payloads or URLs.
+export const safeFailure = (error) =>
+  error instanceof Refused && /^[A-Z][A-Z0-9_]{1,80}$/.test(error.message)
+    ? error.message
+    : "UNEXPECTED_PUBLICATION_ERROR";
 const need = (ok, code) => {
   if (!ok) throw new Refused(code);
 };
@@ -96,10 +101,13 @@ export function extractShare(p, response, createdAfter, now) {
   return { secret, expires };
 }
 
-export async function upsertPreviewComment(io, p, expected, d, share) {
+export async function upsertPreviewComment(io, p, expected, d, share, onStage = () => {}) {
+  onStage("revalidate_pr");
   await latest(io, p, expected);
+  onStage("revalidate_deployment");
   const fresh = validateDeployment(p, await io.vapi("GET", deploymentPath(p, d.id)), expected, d.id);
   need(fresh.readyState === "READY" && fresh.url === d.url, "DEPLOYMENT_CHANGED_BEFORE_COMMENT");
+  onStage("read_comments");
   const comments = await all(io, p, `/issues/${expected.pr}/comments`);
   const owned = comments.filter((c) => botComment(p, c));
   need(owned.length <= 1, "AMBIGUOUS_BOT_COMMENTS");
@@ -107,6 +115,7 @@ export async function upsertPreviewComment(io, p, expected, d, share) {
   url.searchParams.set("_vercel_share", share.secret);
   const body = `${COMMENT_MARKER}\nPreview for commit \`${expected.sha}\` is ready.\n\n[Open preview](${url})\n\nAnyone with this link can access this deployment. The link expires ${new Date(share.expires).toISOString()}.\n\nDeployment: \`${d.id}\`. This is a Preview deployment.\n`;
   // Do not log the link. Its only publication is the authorized PR comment.
+  onStage("write_comment");
   const result = owned.length
     ? await io.gh("PATCH", base(p) + `/issues/comments/${owned[0].id}`, { body })
     : await io.gh("POST", base(p) + `/issues/${expected.pr}/comments`, { body });
@@ -186,9 +195,13 @@ export async function publishPreview(io, p, runtime, event, expected, options = 
   }
   const share = extractShare(p, response, began, io.now());
   io.mask(share.secret);
+  let stage = "revalidate_pr";
   try {
     // Recheck exact current PR immediately before publishing a bearer URL.
-    const commentId = await upsertPreviewComment(io, p, expected, d, share);
+    const commentId = await upsertPreviewComment(io, p, expected, d, share, (value) => {
+      stage = value;
+    });
+    stage = "complete_publication_check";
     await io.gh("PATCH", base(p) + `/check-runs/${claim.id}`, {
       status: "completed",
       conclusion: "success",
@@ -216,6 +229,6 @@ export async function publishPreview(io, p, runtime, event, expected, options = 
       }
       return { result: "stale_link_revoked_not_published", deployment: d.id };
     }
-    return { result: "comment_outcome_uncertain_no_retry", deployment: d.id };
+    return { result: "comment_outcome_uncertain_no_retry", deployment: d.id, stage, reason: safeFailure(error) };
   }
 }

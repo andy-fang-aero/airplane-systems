@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { prepare, approve, validateRuntime, parseJob, makeIO, ENDORSE, CLAIM } from "./controller.mjs";
+import { prepare, approve, validateRuntime, parseJob, makeIO, ENDORSE, CLAIM, Refused } from "./controller.mjs";
 const template = JSON.parse(readFileSync(new URL("./policy.json", import.meta.url)));
 const clone = (x) => structuredClone(x);
 export function harness() {
@@ -428,7 +428,7 @@ test("HTTP adapter fixed destination, no redirects, correct token separation, no
 });
 
 // End-to-end publication mocks. No real links, credentials or HTTP calls.
-import { publishPreview, extractShare, COMMENT_MARKER, PUBLISH } from "./publish.mjs";
+import { publishPreview, extractShare, safeFailure, COMMENT_MARKER, PUBLISH } from "./publish.mjs";
 async function publicationHarness() {
   const h = harness();
   await endorse(h);
@@ -465,6 +465,7 @@ async function publicationHarness() {
       (method === "PATCH" && path.includes("/issues/comments/"))
     ) {
       h.commentWrites.push({ method, path, body });
+      if (h.commentError) throw h.commentError;
       if (h.commentFailure) throw Error("Simulated ambiguous comment response");
       const id = method === "PATCH" ? Number(path.split("/").at(-1)) : 7000;
       h.state.publishedComments.push({ id, ...body });
@@ -660,6 +661,36 @@ test("ambiguous comment response suppresses replay on duplicate event", async ()
   assert.equal((await h.publish()).result, "comment_outcome_uncertain_no_retry");
   assert.equal((await h.publish()).result, "publication_already_claimed_no_retry");
   assert.equal(h.commentWrites.length, 1);
+  assert.equal(h.shareWrites.length, 1);
+});
+test("comment refusal reports only its safe code and stage without replay", async () => {
+  const h = await publicationHarness();
+  h.commentError = new Refused("API_HTTP_403");
+  const result = await h.publish();
+  assert.equal(result.result, "comment_outcome_uncertain_no_retry");
+  assert.equal(result.reason, "API_HTTP_403");
+  assert.equal(result.stage, "write_comment");
+  assert.ok(!JSON.stringify(result).includes("FAKE_SHARE_VALUE_123"));
+  assert.equal((await h.publish()).result, "publication_already_claimed_no_retry");
+  assert.equal(h.commentWrites.length, 1);
+  assert.equal(h.shareWrites.length, 1);
+});
+test("publication diagnostics never expose raw exception payloads", () => {
+  assert.equal(safeFailure(new Error("FAKE_TOKEN_VALUE")), "UNEXPECTED_PUBLICATION_ERROR");
+  assert.equal(safeFailure(new Refused("https://host/?secret=FAKE_TOKEN_VALUE")), "UNEXPECTED_PUBLICATION_ERROR");
+});
+test("pre-comment read failures are distinguished from attempted writes", async () => {
+  const h = await publicationHarness();
+  const gh = h.io.gh;
+  h.io.gh = async (method, path, body) => {
+    if (h.shareWrites.length && method === "GET" && path.includes("/issues/40/comments"))
+      throw new Refused("API_HTTP_403");
+    return gh(method, path, body);
+  };
+  const result = await h.publish();
+  assert.equal(result.reason, "API_HTTP_403");
+  assert.equal(result.stage, "read_comments");
+  assert.equal(h.commentWrites.length, 0);
   assert.equal(h.shareWrites.length, 1);
 });
 test("share creation timeout suppresses replay on duplicate event", async () => {
