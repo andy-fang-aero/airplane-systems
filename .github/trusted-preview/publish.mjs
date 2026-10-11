@@ -86,18 +86,26 @@ export function extractShare(p, response, createdAfter, now) {
   need(entries.length === 1, "AMBIGUOUS_SHARE_RESPONSE");
   const [secret, entry] = entries[0];
   need(/^[A-Za-z0-9_-]{8,256}$/.test(secret), "INVALID_SHARE_SECRET");
-  // Vercel returns `expires` in Unix seconds, but `createdAt` in milliseconds.
-  // Normalize expiry before comparing with the clock and formatting the comment.
-  // Never silently publish a permanent/reused link.
-  const expires = entry.expires * 1000;
+  // Explicit null policy requests no expiry by omitting the API's ttl field.
+  // Vercel omits expires (or returns null) for a non-expiring shareable link.
+  let expires = null;
+  if (p.shareTtlSeconds === null) {
+    need(entry.expires === undefined || entry.expires === null, "UNEXPECTED_SHARE_EXPIRY");
+  } else {
+    // Vercel returns expires in Unix seconds and createdAt in milliseconds.
+    expires = entry.expires * 1000;
+    need(
+      Number.isSafeInteger(entry.expires) &&
+        Number.isSafeInteger(expires) &&
+        expires > now &&
+        expires <= createdAfter + p.shareTtlSeconds * 1000 + 30000,
+      "UNBOUNDED_OR_EXPIRED_SHARE",
+    );
+  }
   need(
-    Number.isSafeInteger(entry.expires) &&
-      Number.isSafeInteger(expires) &&
-      expires > now &&
-      expires <= createdAfter + p.shareTtlSeconds * 1000 + 30000,
-    "UNBOUNDED_OR_EXPIRED_SHARE",
+    Number.isFinite(entry.createdAt) && entry.createdAt >= createdAfter - 5000 && entry.createdAt <= now + 5000,
+    "PREEXISTING_SHARE_REFUSED",
   );
-  need(Number.isFinite(entry.createdAt) && entry.createdAt >= createdAfter - 5000, "PREEXISTING_SHARE_REFUSED");
   return { secret, expires };
 }
 
@@ -113,7 +121,11 @@ export async function upsertPreviewComment(io, p, expected, d, share, onStage = 
   need(owned.length <= 1, "AMBIGUOUS_BOT_COMMENTS");
   const url = new URL("https://" + d.url + "/");
   url.searchParams.set("_vercel_share", share.secret);
-  const body = `${COMMENT_MARKER}\nPreview for commit \`${expected.sha}\` is ready.\n\n[Open preview](${url})\n\nAnyone with this link can access this deployment. The link expires ${new Date(share.expires).toISOString()}.\n\nDeployment: \`${d.id}\`. This is a Preview deployment.\n`;
+  const expiryText =
+    share.expires === null
+      ? "The link has no expiration date."
+      : `The link expires ${new Date(share.expires).toISOString()}.`;
+  const body = `${COMMENT_MARKER}\nPreview for commit \`${expected.sha}\` is ready.\n\n[Open preview](${url})\n\nAnyone with this link can access this deployment. ${expiryText} It stops working if revoked or if the deployment is deleted, including by retention policies.\n\nDeployment: \`${d.id}\`. This is a Preview deployment.\n`;
   // Do not log the link. Its only publication is the authorized PR comment.
   onStage("write_comment");
   const result = owned.length
@@ -126,7 +138,11 @@ export async function upsertPreviewComment(io, p, expected, d, share, onStage = 
 export async function publishPreview(io, p, runtime, event, expected, options = {}) {
   validateRuntime(p, runtime, event);
   need(p.publishPublicLinks === true, "PUBLIC_AUDIENCE_NOT_APPROVED");
-  need(Number.isInteger(p.shareTtlSeconds) && p.shareTtlSeconds > 0 && p.shareTtlSeconds <= 86400, "INVALID_SHARE_TTL");
+  need(
+    p.shareTtlSeconds === null ||
+      (Number.isInteger(p.shareTtlSeconds) && p.shareTtlSeconds > 0 && p.shareTtlSeconds <= 86400),
+    "INVALID_SHARE_TTL",
+  );
   await latest(io, p, expected);
   // Only deployments whose approval this controller claimed are eligible. A bot
   // comment/status alone never grants publication rights for unrelated previews.
@@ -189,7 +205,7 @@ export async function publishPreview(io, p, runtime, event, expected, options = 
   const began = io.now();
   let response;
   try {
-    response = await io.vapi("PATCH", sharePath(p, d.id), { ttl: p.shareTtlSeconds });
+    response = await io.vapi("PATCH", sharePath(p, d.id), p.shareTtlSeconds === null ? {} : { ttl: p.shareTtlSeconds });
   } catch {
     return { result: "share_outcome_uncertain_no_retry", deployment: d.id };
   }
@@ -207,14 +223,14 @@ export async function publishPreview(io, p, runtime, event, expected, options = 
       conclusion: "success",
       output: {
         title: "Preview link published",
-        summary: `PR #${expected.pr}; SHA ${expected.sha}; deployment ${d.id}; comment ${commentId}; expires ${new Date(share.expires).toISOString()}.`,
+        summary: `PR #${expected.pr}; SHA ${expected.sha}; deployment ${d.id}; comment ${commentId}; expiry ${share.expires === null ? "none" : new Date(share.expires).toISOString()}.`,
       },
     });
     return {
       result: "preview_link_published",
       deployment: d.id,
       commentId,
-      expires: new Date(share.expires).toISOString(),
+      expires: share.expires === null ? null : new Date(share.expires).toISOString(),
     };
   } catch (error) {
     if (

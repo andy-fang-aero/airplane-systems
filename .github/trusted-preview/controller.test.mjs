@@ -5,7 +5,7 @@ import { prepare, approve, validateRuntime, parseJob, makeIO, ENDORSE, CLAIM, Re
 const template = JSON.parse(readFileSync(new URL("./policy.json", import.meta.url)));
 const clone = (x) => structuredClone(x);
 export function harness() {
-  const p = { ...clone(template), enabled: true, approvedUserIds: [11378800] };
+  const p = { ...clone(template), enabled: true, approvedUserIds: [11378800], shareTtlSeconds: 86400 };
   const user = { id: 11378800, type: "User", login: "ligolnik" };
   const pr = {
     number: 40,
@@ -168,6 +168,8 @@ test("approved policy is enabled; the emergency disable switch fails closed", ()
   assert.equal(template.enabled, true);
   assert.deepEqual(template.approvedUserIds, [11378800, 340809365]);
   assert.deepEqual(template.proposedUserIdsPendingApproval, []);
+  assert.deepEqual(template.approvedUpdateSenderIds, [3586644]);
+  assert.equal(template.shareTtlSeconds, null);
   const h = harness();
   assert.throws(() => validateRuntime({ ...template, enabled: false }, h.runtime, h.event), /POLICY_DISABLED/);
 });
@@ -429,8 +431,10 @@ test("HTTP adapter fixed destination, no redirects, correct token separation, no
 
 // End-to-end publication mocks. No real links, credentials or HTTP calls.
 import { publishPreview, extractShare, safeFailure, COMMENT_MARKER, PUBLISH } from "./publish.mjs";
-async function publicationHarness() {
+async function publicationHarness(ttl = 86400) {
   const h = harness();
+  h.p.shareTtlSeconds = ttl;
+  h.state.remotePolicy = clone(h.p);
   await endorse(h);
   await run(h);
   h.expected = candidate(h);
@@ -485,7 +489,7 @@ async function publicationHarness() {
           FAKE_SHARE_VALUE_123: {
             scope: "shareable-link",
             createdAt: h.now,
-            expires: Math.floor(h.now / 1000) + h.p.shareTtlSeconds,
+            ...(h.p.shareTtlSeconds === null ? {} : { expires: Math.floor(h.now / 1000) + h.p.shareTtlSeconds }),
           },
         },
       }
@@ -788,3 +792,122 @@ for (const [name, edit] of [
     assert.equal((await run(h)).result, "no_corroborated_pending_gate");
     assert.equal(h.state.posts.length, 0);
   });
+
+const ownerSender = (h) => {
+  h.event.sender = { id: 3586644, type: "User", login: "andyfangdz" };
+  h.runtime.actorId = 3586644;
+  h.state.runOverride = { actor: { id: 3586644 } };
+};
+for (const action of ["synchronize", "reopened", "ready_for_review"])
+  test(`owner sender may endorse existing contributor PR via ${action}`, async () => {
+    const h = harness();
+    ownerSender(h);
+    h.event.action = action;
+    await endorse(h);
+    assert.equal((await run(h)).result, "approval_http_success_deployment_unverified");
+    assert.equal(h.state.posts.length, 1);
+    await run(h);
+    assert.equal(h.state.posts.length, 1);
+  });
+for (const [name, change] of [
+  [
+    "opened",
+    (h) => {
+      h.event.action = "opened";
+    },
+  ],
+  [
+    "bot spoof",
+    (h) => {
+      h.event.sender.type = "Bot";
+    },
+  ],
+  [
+    "actor mismatch",
+    (h) => {
+      h.runtime.actorId = 777;
+    },
+  ],
+  [
+    "owner PR author",
+    (h) => {
+      h.event.pull_request.user = h.event.sender;
+    },
+  ],
+  [
+    "owner fork",
+    (h) => {
+      h.event.pull_request.head.repo.owner = h.event.sender;
+    },
+  ],
+  [
+    "untrusted contributor",
+    (h) => {
+      h.event.pull_request.user.id = 777;
+    },
+  ],
+])
+  test(`owner sender does not permit ${name}`, async () => {
+    const h = harness();
+    ownerSender(h);
+    change(h);
+    await assert.rejects(() => endorse(h));
+    assert.equal(h.state.writes.length, 0);
+    assert.equal(h.state.posts.length, 0);
+  });
+test("owner endorsement receipts retain the restricted update action and actor provenance", async () => {
+  const h = harness();
+  ownerSender(h);
+  await endorse(h);
+  h.state.runOverride.actor.id = 777;
+  assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+  h.state.runOverride.actor.id = 3586644;
+  const c = h.state.checks.find((c) => c.name === ENDORSE);
+  const r = JSON.parse(c.output.text);
+  r.action = "opened";
+  c.output.text = JSON.stringify(r);
+  c.external_id = "tpe-v1:" + (await import("./controller.mjs")).digest(r);
+  assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+  assert.equal(h.state.posts.length, 0);
+});
+test("non-expiring share omits ttl, reports no expiry and preserves one-comment idempotency", async () => {
+  const h = await publicationHarness(null);
+  const result = await h.publish();
+  assert.equal(result.result, "preview_link_published");
+  assert.equal(result.expires, null);
+  assert.deepEqual(h.shareWrites[0].body, {});
+  assert.equal(h.shareWrites[0].path, `/aliases/${h.deployment.id}/protection-bypass?teamId=${h.p.teamId}`);
+  assert.match(h.commentWrites[0].body.body, /no expiration date/);
+  assert.match(h.commentWrites[0].body.body, /revoked.*deployment is deleted.*retention policies/);
+  assert.doesNotMatch(h.commentWrites[0].body.body, /1970|24.hour|expires /);
+  assert.equal((await h.publish()).result, "publication_already_claimed_no_retry");
+  assert.equal(h.shareWrites.length, 1);
+  assert.equal(h.commentWrites.length, 1);
+});
+test("non-expiring share accepts null expiry but rejects finite, malformed, stale and ambiguous entries", () => {
+  const p = { ...template, shareTtlSeconds: null };
+  const now = 1791687000000;
+  const entry = { scope: "shareable-link", createdAt: now, expires: null };
+  assert.equal(extractShare(p, { protectionBypass: { FAKE_SECRET: entry } }, now, now).expires, null);
+  for (const expires of [0, false, "never", now / 1000 + 86400])
+    assert.throws(() => extractShare(p, { protectionBypass: { FAKE_SECRET: { ...entry, expires } } }, now, now));
+  for (const createdAt of [now - 100000, now + 100000, undefined])
+    assert.throws(() => extractShare(p, { protectionBypass: { FAKE_SECRET: { ...entry, createdAt } } }, now, now));
+  assert.throws(() => extractShare(p, { protectionBypass: { FAKE_SECRET: entry, SECOND_SECRET: entry } }, now, now));
+});
+test("absent expiry policy is not implicit authorization for permanent sharing", async () => {
+  const h = await publicationHarness();
+  delete h.p.shareTtlSeconds;
+  h.state.remotePolicy = clone(h.p);
+  await assert.rejects(h.publish, /INVALID_SHARE_TTL/);
+  assert.equal(h.shareWrites.length, 0);
+});
+test("stale non-expiring share is revoked without publication", async () => {
+  const h = await publicationHarness(null);
+  h.onShare = () => {
+    h.state.pr.head.sha = "e".repeat(40);
+  };
+  assert.equal((await h.publish()).result, "stale_link_revoked_not_published");
+  assert.deepEqual(h.shareWrites[1].body, { revoke: { secret: "FAKE_SHARE_VALUE_123", regenerate: false } });
+  assert.equal(h.commentWrites.length, 0);
+});

@@ -13,6 +13,10 @@ const sha = (s) => typeof s === "string" && /^[a-f0-9]{40}$/.test(s);
 export const digest = (o) => createHash("sha256").update(JSON.stringify(o)).digest("hex");
 const same = (a, b) => digest(a) === digest(b);
 const approved = (p, u) => u?.type === "User" && p.approvedUserIds.includes(u.id);
+const updateEvents = ["synchronize", "reopened", "ready_for_review"];
+const canEndorse = (p, id, action) =>
+  (p.approvedUserIds.includes(id) && ["opened", ...updateEvents].includes(action)) ||
+  ((p.approvedUpdateSenderIds ?? []).includes(id) && updateEvents.includes(action));
 const bot = (p, u) => u?.type === "Bot" && u.id === p.vercelBotId && u.login === "vercel[bot]";
 const prefix = (p) => `/repos/${p.repository}`;
 const get = (io, p, path) => io.gh("GET", prefix(p) + path);
@@ -109,12 +113,13 @@ export async function all(io, p, path, field) {
 export const checks = (io, p, head, name) =>
   all(io, p, `/commits/${head}/check-runs?filter=all&check_name=${encodeURIComponent(name)}`, "check_runs");
 
-function receipt(p, pr, runtime, actor) {
+function receipt(p, pr, runtime, actor, action) {
   return {
     version: 1,
     ...validatePr(p, pr),
     policy: digest(p),
     actorId: actor.id,
+    action,
     runId: runtime.runId,
     workflowSha: runtime.workflowSha,
   };
@@ -122,12 +127,17 @@ function receipt(p, pr, runtime, actor) {
 
 async function endorse(io, p, runtime, event) {
   insist(["opened", "synchronize", "reopened", "ready_for_review"].includes(event.action), "BAD_PR_EVENT");
-  insist(approved(p, event.sender) && event.sender.id === runtime.actorId, "UNTRUSTED_EVENT_SENDER");
+  insist(
+    event.sender?.type === "User" &&
+      event.sender.id === runtime.actorId &&
+      canEndorse(p, event.sender.id, event.action),
+    "UNTRUSTED_EVENT_SENDER",
+  );
   const original = validatePr(p, event.pull_request);
   const pr = await get(io, p, `/pulls/${original.pr}`);
   validatePr(p, pr, original);
   await currentPolicy(io, p);
-  const data = receipt(p, pr, runtime, event.sender);
+  const data = receipt(p, pr, runtime, event.sender, event.action);
   const encoded = "tpe-v1:" + digest(data);
   const existing = await checks(io, p, pr.head.sha, ENDORSE);
   if (
@@ -214,7 +224,7 @@ export async function hasEndorsement(io, p, pr) {
       r.sha !== pr.head.sha ||
       r.forkId !== pr.head.repo.id ||
       r.policy !== digest(p) ||
-      !p.approvedUserIds.includes(r.actorId) ||
+      !canEndorse(p, r.actorId, r.action) ||
       !integer(r.runId) ||
       !sha(r.workflowSha)
     )
