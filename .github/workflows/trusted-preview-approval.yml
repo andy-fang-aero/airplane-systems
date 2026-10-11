@@ -1,4 +1,4 @@
-# Installed disabled pending manual credential handoff and live canary.
+# Trusted fork previews: project-only token in the main-only environment.
 name: Trusted fork preview approval
 on:
   pull_request_target:
@@ -11,7 +11,7 @@ permissions: {}
 jobs:
   prepare:
     if: >-
-      ${{ false && github.repository_id == '1384478843' &&
+      ${{ github.repository_id == '1384478843' &&
           (github.event_name == 'pull_request_target' ||
            (github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.comment.user.id == 35613825) ||
            (github.event_name == 'status' && github.event.context == 'Vercel')) }}
@@ -41,7 +41,7 @@ jobs:
           TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: node .github/trusted-preview/controller.mjs prepare
   approve:
-    if: ${{ false && needs.prepare.result == 'success' && needs.prepare.outputs.candidates != '[]' }}
+    if: ${{ needs.prepare.result == 'success' && needs.prepare.outputs.candidates != '[]' }}
     needs: prepare
     strategy:
       fail-fast: false

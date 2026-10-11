@@ -143,12 +143,12 @@ test("positive: genuine actor endorsement -> exact single POST, final response i
   assert.deepEqual(h.state.posts, [{ path: "authorize-job?teamId=" + h.p.teamId, body: { job: h.job } }]);
   assert.equal(h.state.checks.find((c) => c.name === CLAIM).conclusion, "success");
 });
-test("shipped policy is inert with the two explicitly approved numeric IDs", () => {
-  assert.equal(template.enabled, false);
+test("approved policy is enabled; the emergency disable switch fails closed", () => {
+  assert.equal(template.enabled, true);
   assert.deepEqual(template.approvedUserIds, [11378800, 340809365]);
   assert.deepEqual(template.proposedUserIdsPendingApproval, []);
   const h = harness();
-  assert.throws(() => validateRuntime(template, h.runtime, h.event), /POLICY_DISABLED/);
+  assert.throws(() => validateRuntime({ ...template, enabled: false }, h.runtime, h.event), /POLICY_DISABLED/);
 });
 for (const [name, change] of [
   [
