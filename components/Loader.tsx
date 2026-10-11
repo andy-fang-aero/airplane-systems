@@ -10,7 +10,7 @@ const TEXT: Record<Exclude<BuildStage, "ready">, string> = {
   systems: "Adding systems",
 };
 
-/** Set once a scene has been completed: later builds (another airplane) fade the overlay in after a moment instead. */
+/** Later progressive builds may fade in; a one-shot build needs visible feedback before its blocking render. */
 let completedOnce = false;
 
 /**
@@ -32,7 +32,7 @@ export function Loader() {
   const bar = stage === "systems";
   return (
     <div
-      className={`loader${bar ? " loader-bar" : ""}${completedOnce ? " loader-later" : ""}`}
+      className={`loader${bar ? " loader-bar" : ""}${completedOnce && def.progressive ? " loader-later" : ""}`}
       role="status"
       aria-live="polite"
       data-building={stage}

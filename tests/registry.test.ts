@@ -65,3 +65,48 @@ describe("focusPart", () => {
     }
   });
 });
+
+describe("pending locate cancellation", () => {
+  it.each(["system", "aircraft", "reset"])("does not replay a late locate after %s navigation", (kind) => {
+    vi.stubGlobal("document", { querySelector: () => null });
+    const initial = useView.getState();
+    try {
+      focusPart("cancelled late part");
+      if (kind === "system") {
+        useView.setState({ sys: "electrical", focus: null });
+        useView.setState({ sys: initial.sys }); // returning to the original view must not revive the request
+      } else if (kind === "aircraft") {
+        useView.setState({ ac: "sr22t", focus: null });
+        useView.setState({ ac: initial.ac });
+      } else useView.getState().flyTo([7, 4, 9], [0, 0, 0]);
+      const camera = useView.getState().cam;
+      const mesh = new Mesh(new BoxGeometry(0.2, 0.2, 0.2));
+      mesh.position.set(10, 20, 30);
+      const off = registerPart("cancelled late part", mesh, true);
+      expect(useView.getState().cam).toBe(camera);
+      off();
+      mesh.geometry.dispose();
+    } finally {
+      useView.setState(initial);
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps a pending locate across display-only changes", () => {
+    vi.stubGlobal("document", { querySelector: () => null });
+    const initial = useView.getState();
+    try {
+      focusPart("late after theme");
+      useView.setState({ theme: initial.theme === "light" ? "dark" : "light" });
+      const mesh = new Mesh(new BoxGeometry(0.2, 0.2, 0.2));
+      mesh.position.set(2, 3, 4);
+      const off = registerPart("late after theme", mesh, true);
+      expect(useView.getState().cam!.t).toEqual([2, 3, 4]);
+      off();
+      mesh.geometry.dispose();
+    } finally {
+      useView.setState(initial);
+      vi.unstubAllGlobals();
+    }
+  });
+});

@@ -53,7 +53,7 @@ async function startServer() {
 /** Before any page script: catch the three.js scene and the camera each frame renders with (three's devtools hook). */
 function hookThree() {
   // the load's timeline: when the loader was first and last seen, and each frame's count of drawn skin shells
-  const marks = (window.__marks = { loaderSeen: null, loaderGone: null, shells: [], parts: [] });
+  const marks = (window.__marks = { loaderSeen: null, loaderGone: null, frames: 0, shells: [], parts: [] });
   new MutationObserver(() => {
     const shown = !!document.querySelector(".loader");
     if (shown) marks.loaderSeen ??= performance.now();
@@ -68,6 +68,7 @@ function hookThree() {
       const render = d.render.bind(d);
       d.render = (scene, camera) => {
         objs.camera = camera;
+        marks.frames++;
         let n = 0;
         scene.traverse((o) => {
           if (o.isMesh && o.userData.pick?.shell && o.userData.pick.sys.every((s) => s === "airframe")) n++;
@@ -245,6 +246,9 @@ const cameraDiff = (got, want) => got.length !== want.length || got.some((v, i) 
 
 /** The camera once it has stopped (flights take 1 s; damping settles after): position and view direction, rounded. */
 async function settledCamera(page) {
+  // Wait for rendered frames after a camera request; timers alone can sample stale OrbitControls orientation.
+  const frame = await page.evaluate(() => window.__marks.frames);
+  await page.waitForFunction((f) => window.__marks.frames >= f + 2, frame);
   const read = () =>
     page.evaluate(() => {
       const c = window.__three.camera;
@@ -319,6 +323,12 @@ try {
   await page.locator(".toolbar").getByRole("button", { name: "Reset view", exact: true }).click();
   got.cameras["/sr22t/overview Reset view after a drag"] = await settledCamera(page);
   console.log(`cameras: ${JSON.stringify(got.cameras)}`);
+  assert.ok(
+    !cameraDiff(got.cameras["/sr22t/overview Reset view after a drag"], got.cameras["/sr22t/overview"]),
+    "Reset view restores the overview position and direction",
+  );
+  // This invariant replaces a redundant baseline that previously captured an unsettled post-drag direction.
+  delete got.cameras["/sr22t/overview Reset view after a drag"];
 
   if (!update) {
     // the deep-linked system's parts are added first; the overview adds them later
@@ -369,6 +379,70 @@ try {
       });
       assert.ok(Math.abs(d - 2.6) < 0.01, `located the late part: camera ${d} m from it (2.6 m expected)`);
       console.log(`Tap to locate a part before it mounts: the camera flies to it once it does (${d.toFixed(3)} m)`);
+      await ctx.close();
+    }
+
+    // A newer system request supersedes a locate request for a part still being built.
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+      await ctx.addInitScript(hookThree);
+      await ctx.route("**/_vercel/**", (route) => route.abort());
+      await ctx.addInitScript(() => (window.__buildHold = ["Oxygen bottle — 77 cu ft"]));
+      const p = await ctx.newPage();
+      await p.goto(base + "/sr22t/oxygen");
+      await p.waitForSelector(".loader-bar");
+      await p.locator(".parts button", { hasText: "Oxygen bottle — 77 cu ft" }).click();
+      await p.locator(".syslist button").filter({ hasText: "Electrical" }).click();
+      const before = await settledCamera(p);
+      await p.evaluate(() => delete window.__buildHold);
+      await sceneComplete(p);
+      assert.ok(!cameraDiff(await settledCamera(p), before), "late part cannot override a newer system view");
+      console.log("Late locate cancelled: electrical camera remains after the oxygen bottle mounts");
+      await ctx.close();
+    }
+
+    // A one-shot airplane must paint an opaque loader before synchronous geometry construction on a fleet switch.
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "no-preference" });
+      await ctx.addInitScript(hookThree);
+      await ctx.route("**/_vercel/**", (route) => route.abort());
+      const p = await ctx.newPage();
+      await p.goto(base + "/sr20/overview");
+      await sceneComplete(p);
+      const cdp = await ctx.newCDPSession(p);
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+      await p.evaluate(() => {
+        window.__switchFrames = [];
+        window.__switchSampling = true;
+        const sample = () => {
+          if (!window.__switchSampling) return;
+          const loader = document.querySelector(".loader");
+          let parts = 0;
+          window.__three.scenes
+            .find((s) => s.children.length)
+            ?.traverse((o) => {
+              if (o.isMesh && o.userData.pick) parts++;
+            });
+          window.__switchFrames.push({
+            stage: loader?.dataset.building,
+            opacity: loader ? Number(getComputedStyle(loader).opacity) : 0,
+            parts,
+          });
+          requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      });
+      await p.getByRole("button", { name: "C182T", exact: true }).click();
+      await sceneComplete(p);
+      const frames = await p.evaluate(() => {
+        window.__switchSampling = false;
+        return window.__switchFrames;
+      });
+      assert.ok(
+        frames.some((f) => f.stage === "airframe" && f.opacity === 1 && f.parts === 0),
+        `opaque loader painted before the C182T model mounted: ${JSON.stringify(frames)}`,
+      );
+      console.log("One-shot fleet switch: opaque loader paints before uncached C182T geometry (4x CPU slowdown)");
       await ctx.close();
     }
 

@@ -392,6 +392,7 @@ export function SceneModel() {
         specGeo(queue.shift() ?? parts[ahead++]);
       if (!queue.length && ahead >= parts.length) await fuselage;
     }
+    if (!current()) return; // the awaited worker may finish after this model has unmounted
     specGeo(hull); // the worker's geometry, primed when it arrived; built here if the worker could not run
     if (!shadersReady) {
       setBuild("shaders");

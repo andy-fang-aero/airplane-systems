@@ -37,6 +37,10 @@ export const view: { camera: THREE.Camera | null; target: THREE.Vector3 | null }
 
 /** A part "tap to locate" asked for that is not mounted yet: focused as soon as it is. */
 let waiting: string | null = null;
+// Navigation and Reset view supersede a locate request, even if the user returns before the part mounts.
+useView.subscribe((next, previous) => {
+  if (next.ac !== previous.ac || next.sys !== previous.sys || next.cam !== previous.cam) waiting = null;
+});
 
 /** Fly the camera to a named part (keeping the current viewing direction) and flash it; a part not mounted yet, once it is. */
 export function focusPart(name: string) {
