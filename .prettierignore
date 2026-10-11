@@ -7,3 +7,6 @@ out/
 # Generated vector plots and compact numeric trace samples.
 aircraft/reference-traces/*.svg
 aircraft/reference-traces/baseline.json
+
+# Generated identical-scene baseline (numeric summaries, one line per part).
+tests/scene-snapshot.baseline.json

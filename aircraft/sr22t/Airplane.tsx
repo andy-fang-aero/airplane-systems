@@ -1,20 +1,33 @@
 "use client";
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ControlSurfaces } from "@/components/scene/ControlSurface";
 import { Flows } from "@/components/scene/Flows";
 import { LightFX, type BeamSpec, type GlowSpec } from "@/components/scene/LightFX";
 import { Parts, Shells } from "@/components/scene/Part";
+import { Precompile } from "@/components/scene/Precompile";
 import { Screens, type ScreenSpec } from "@/components/scene/Screens";
 import { Tanks, type TankSpec } from "@/components/scene/Tanks";
 import { WindowOutlines } from "@/components/scene/WindowOutlines";
+import { skinMat } from "@/lib/materials";
 import { D2R, type Vec3 } from "@/lib/math";
-import { useView } from "@/lib/view";
+import { beginParts, endParts, markAdded, nextFrame, setBuild, useBuild } from "@/lib/build";
+import { specGeo, type PartSpec } from "@/lib/catalogue";
+import { narrowLayout, useView } from "@/lib/view";
 import { ControlRig } from "./ControlRig";
 import { drawMfdScreen, drawOff, drawPfdScreen, drawStandby } from "./displays";
 import { cabinAirColor, flowRates, flowsFor, isCabinAir } from "./flows";
-import { doorHinge, doorRotation, doorWindowOutline, loft, windowOutlines, wingSec, type DoorKey } from "./geometry";
+import {
+  doorHinge,
+  doorRotation,
+  doorWindowOutline,
+  loft,
+  paintSkin,
+  windowOutlines,
+  wingSec,
+  type DoorKey,
+} from "./geometry";
 import { bladeDisplayPitch, cabinLit, extLit, live } from "./model";
 import {
   CAT,
@@ -34,6 +47,7 @@ import {
 import { surfDeflection } from "./rig";
 import { useSR22T } from "./store";
 import { useEngineGroups } from "./engine-group-store";
+import { fuselageInWorker, isFuselage } from "./fuselage-geo";
 import { engineHidden } from "./engine-groups";
 
 const P = ({ parent }: { parent?: string }) => <Parts cat={CAT} parent={parent} />;
@@ -288,8 +302,11 @@ const flowColor = (k: string, out: THREE.Color) => {
   return true;
 };
 
-/** The SR22T G6 scene: airframe shells, control surfaces, moving assemblies, tanks, displays, lights. */
-export function Model() {
+/**
+ * The SR22T G6 scene: airframe shells, control surfaces, moving assemblies, tanks, displays, lights. `overlays` false leaves
+ * out the tanks, flows, screens, light effects and window outlines (a progressive build adds them last).
+ */
+export function Model({ overlays = true }: { overlays?: boolean } = {}) {
   // Rebuild scene part lists and the stall warning flows when optional TKS equipment changes (including portal labels).
   const fiki = useSR22T((x) => x.s.equip.fiki);
   const shown = useEngineGroups((x) => x.shown);
@@ -312,11 +329,118 @@ export function Model() {
       <Cylinders />
       <Yokes />
       <ControlRig />
-      <Tanks tanks={TANKS} />
-      <Flows flows={flows} rates={rates} color={flowColor} />
-      <Screens screens={SCREENS} />
-      <LightFX glows={GLOWS} beams={BEAMS} />
-      <WindowOutlines loops={windowOutlines} />
+      {overlays && <Tanks tanks={TANKS} />}
+      {overlays && <Flows flows={flows} rates={rates} color={flowColor} />}
+      {overlays && <Screens screens={SCREENS} />}
+      {overlays && <LightFX glows={GLOWS} beams={BEAMS} />}
+      {overlays && <WindowOutlines loops={windowOutlines} />}
+    </>
+  );
+}
+
+/** Test hook (scripts/test-load-ui.mjs): parts named here are held back until the list is removed, forcing a late mount. */
+const heldBack = (p: PartSpec) =>
+  (globalThis as { __buildHold?: string[] }).__buildHold?.includes(p.name ?? "") ?? false;
+
+/** The parts the view needs first: the shown system's (a deep link), then the labelled ones. */
+function priority() {
+  const { sys } = useView.getState();
+  return (p: PartSpec) => (heldBack(p) ? 3 : sys !== "overview" && p.sys.includes(sys) ? 0 : p.pin ? 1 : 2);
+}
+
+/** Work per slice of the systems build (building parts and React mounting them), ms: one slice runs between two frames. */
+const SLICE_MS = 8, // approximate: frame pacing, not a source value
+  SLICE_MS_NARROW = 12; // approximate: phones get fewer, larger slices
+
+/**
+ * The SR22T scene as the airplane mounts it (`progressive`), stage by stage for the loader (lib/build.ts):
+ * 1. its shader programs start compiling (components/scene/Precompile.tsx);
+ * 2. the skin shells and control surfaces are built in slices between frames, the fuselage skin in a worker
+ *    (fuselage-geo.ts, started at boot by the airplane's prepare); part geometry is built ahead until it is back;
+ * 3. once the shaders are ready, the airframe mounts: the camera responds from here on;
+ * 4. the parts are built and mount in slices of SLICE_MS between frames, those the view needs first (priority());
+ * 5. the tanks, flows, screens and light effects mount, and the scene is complete.
+ * The final scene is the one Model builds in one go (tests/scene-snapshot.test.ts, npm run test:ui:load).
+ */
+export function SceneModel() {
+  const [stage, setStage] = useState<"start" | "parts" | "complete">("start");
+  const skin = useMemo(() => [skinMat(paintSkin)], []);
+  // each run (a remount, or React's dev double-mount, starts another) stops as soon as a newer one starts or the model unmounts
+  const runs = useRef(0);
+  const run = useCallback(async (compiled: Promise<unknown>) => {
+    const me = ++runs.current,
+      current = () => runs.current === me;
+    let shadersReady = false;
+    void compiled.then(() => (shadersReady = true));
+    setBuild("airframe");
+    // the fuselage skin is built in a worker meanwhile (on the main thread if the worker can't run)
+    const hull = CAT.shells.find(isFuselage)!,
+      fuselage = fuselageInWorker();
+    let hullBuilt: THREE.BufferGeometry | null | undefined;
+    void fuselage.then((g) => (hullBuilt = g));
+    // the other shells and the surfaces, in slices between frames; then, until the fuselage is back, part geometry
+    // (built, not mounted yet)
+    const parts = CAT.parts.filter((p) => !p.fitted || p.fitted()),
+      queue = [...CAT.shells.filter((s) => s !== hull), ...CAT.surfaces];
+    let ahead = 0;
+    while (queue.length || hullBuilt === undefined) {
+      await nextFrame();
+      if (!current()) return;
+      const t0 = performance.now(),
+        budget = narrowLayout() ? SLICE_MS_NARROW : SLICE_MS;
+      while (performance.now() - t0 < budget && (queue.length || (hullBuilt === undefined && ahead < parts.length)))
+        specGeo(queue.shift() ?? parts[ahead++]);
+      if (!queue.length && ahead >= parts.length) await fuselage;
+    }
+    specGeo(hull); // the worker's geometry, primed when it arrived; built here if the worker could not run
+    if (!shadersReady) {
+      setBuild("shaders");
+      await compiled;
+      if (!current()) return;
+    }
+    const built = beginParts(CAT);
+    setBuild("systems", 0, parts.length);
+    setStage("parts");
+    // React's commit of the parts a slice adds counts against the slice too: its cost per part, re-measured each slice
+    let commitPerPart = 0.5; // approximate: a starting estimate, ms
+    while (built.size < parts.length) {
+      await nextFrame();
+      if (!current()) return;
+      const rank = priority(),
+        next = parts.filter((p) => !built.has(p) && !heldBack(p)).sort((a, b) => rank(a) - rank(b)),
+        budget = narrowLayout() ? SLICE_MS_NARROW : SLICE_MS,
+        t0 = performance.now();
+      let n = 0;
+      for (const p of next) {
+        specGeo(p);
+        built.add(p);
+        markAdded(p);
+        n++;
+        if (!useBuild.getState().skip && performance.now() - t0 + n * commitPerPart > budget) break;
+      }
+      if (!n) continue; // only held-back parts left
+      const t1 = performance.now();
+      useBuild.setState({ done: built.size });
+      await Promise.resolve(); // the store update renders and commits in a microtask queued before this one
+      commitPerPart = (commitPerPart + (performance.now() - t1) / n) / 2;
+    }
+    setStage("complete");
+    await nextFrame();
+    if (!current()) return;
+    endParts(CAT);
+    setBuild("ready");
+  }, []);
+  useEffect(
+    () => () => {
+      runs.current++;
+      endParts(CAT);
+    },
+    [],
+  );
+  return (
+    <>
+      <Precompile extra={skin} onStarted={run} />
+      {stage !== "start" && <Model overlays={stage === "complete"} />}
     </>
   );
 }

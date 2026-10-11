@@ -1,7 +1,8 @@
 /** "Tap to locate" (lib/registry): the camera flies to the instance of a part that carries its label. */
-import { Mesh } from "three";
-import { describe, expect, it } from "vitest";
-import { partObjects, registerPart } from "@/lib/registry";
+import { BoxGeometry, Mesh, Vector3 } from "three";
+import { describe, expect, it, vi } from "vitest";
+import { focusPart, partObjects, registerPart } from "@/lib/registry";
+import { useView } from "@/lib/view";
 
 describe("partObjects", () => {
   it("prefers the first pinned mesh of a name over an earlier unpinned one", () => {
@@ -24,5 +25,43 @@ describe("partObjects", () => {
     expect(partObjects.get("probe B")).toBe(a);
     offs.forEach((off) => off());
     expect(partObjects.has("probe B")).toBe(false);
+  });
+});
+
+describe("focusPart", () => {
+  it("flies to a part that mounts after it was asked for (a progressive build still adding it)", () => {
+    vi.stubGlobal("document", { querySelector: () => null });
+    try {
+      const before = useView.getState().cam;
+      focusPart("probe late");
+      expect(useView.getState().cam).toBe(before); // nothing to fly to yet
+      expect(useView.getState().focus).toBe("probe late");
+      const mesh = new Mesh(new BoxGeometry(0.2, 0.2, 0.2));
+      mesh.position.set(1, 2, 3);
+      const off = registerPart("probe late", mesh, true);
+      const cam = useView.getState().cam!;
+      expect(cam).not.toBe(before);
+      expect(new Vector3(...cam.t).distanceTo(new Vector3(1, 2, 3))).toBeLessThan(1e-9);
+      expect(new Vector3(...cam.p).distanceTo(new Vector3(1, 2, 3))).toBeCloseTo(2.6, 9);
+      off();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("forgets a waiting part once another one is located", () => {
+    vi.stubGlobal("document", { querySelector: () => null });
+    try {
+      const there = new Mesh(new BoxGeometry(0.2, 0.2, 0.2));
+      const offs = [registerPart("probe here", there, true)];
+      focusPart("probe gone");
+      focusPart("probe here");
+      const cam = useView.getState().cam;
+      offs.push(registerPart("probe gone", new Mesh(new BoxGeometry(0.2, 0.2, 0.2)), true));
+      expect(useView.getState().cam).toBe(cam);
+      offs.forEach((off) => off());
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

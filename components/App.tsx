@@ -14,13 +14,11 @@ import {
 } from "@/aircraft";
 import { isAircraftId, sysColor, type AircraftId, type SysId, type Theme } from "@/lib/systems";
 import { revealStage, useView } from "@/lib/view";
+import { Loader } from "./Loader";
 import { Tour, startTour } from "./Tour";
 
-// WebGL scene is client-only
-const Scene = dynamic(() => import("./scene/Scene"), {
-  ssr: false,
-  loading: () => <div className="loading">Loading 3D model…</div>,
-});
+// WebGL scene is client-only; the Loader overlay shows while it loads (the placeholder keeps the canvas's slot)
+const Scene = dynamic(() => import("./scene/Scene"), { ssr: false, loading: () => <div /> });
 
 function Fleet() {
   const ac = useView((x) => x.ac);
@@ -297,6 +295,7 @@ function useBoot() {
       saved = read("fleetAc");
     if (u) show(...u);
     else show(isAircraftId(saved) ? saved : "sr20");
+    aircraft(useView.getState().ac).prepare?.();
     return () => os.removeEventListener("change", onOs);
   }, []);
 }
@@ -314,6 +313,7 @@ export default function App() {
       <Rail />
       <main className="stage">
         <Scene />
+        <Loader />
         <Toolbar />
         <div className="stage-foot">
           <Alerts key={def.id} />
