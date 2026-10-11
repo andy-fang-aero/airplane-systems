@@ -4,7 +4,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { animatePart } from "@/lib/anims";
-import type { Catalogue, PartSpec, ShellSpec } from "@/lib/catalogue";
+import { buildingIn, useBuiltParts } from "@/lib/build";
+import { specGeo, type Catalogue, type PartSpec, type ShellSpec } from "@/lib/catalogue";
 import { finishMat, ghostMat, mats, plateMat, shellMat, skinMat, solidMat } from "@/lib/materials";
 import { registerPart } from "@/lib/registry";
 import { palette, sysColor, type SysId } from "@/lib/systems";
@@ -19,16 +20,8 @@ export interface PickInfo {
   shell?: boolean;
 }
 
-/** Geometry is built once per spec and kept, so switching airplanes back and forth is cheap. */
-const geoCache = new WeakMap<object, THREE.BufferGeometry>();
-export function specGeo(spec: { geo: () => THREE.BufferGeometry }) {
-  let g = geoCache.get(spec);
-  if (!g) {
-    g = spec.geo();
-    geoCache.set(spec, g);
-  }
-  return g;
-}
+// geometry is built once per spec and kept, so switching airplanes back and forth is cheap
+export { specGeo };
 
 /** Release animation-owned geometry while retaining the reusable catalogue geometry. */
 export function releasePartGeometry(mesh: THREE.Mesh, cached: THREE.BufferGeometry) {
@@ -107,6 +100,8 @@ export function Part({ spec, cat }: { spec: PartSpec; cat: Catalogue }) {
   // animatePart applies the scene material policy and shows a part flashed by "tap to locate" even if its animation hides it
   useFrame(({ clock }) => {
     animatePart(ref.current, clock.elapsedTime, spec, appearance);
+    // a part a progressive build just added glows for a moment (lib/build.ts)
+    if (act && !focused && !ghost && !spec.plate && buildingIn(spec)) ref.current.material = mats(color).hi;
   });
 
   return (
@@ -125,14 +120,12 @@ export function Part({ spec, cat }: { spec: PartSpec; cat: Catalogue }) {
   );
 }
 
-/** All parts riding on one moving group (or the fixed airframe when parent is omitted). */
-export const Parts = ({ cat, parent }: { cat: Catalogue; parent?: string }) => (
-  <>
-    {cat.partsFor(parent).map((p) => (
-      <Part key={p.id} spec={p} cat={cat} />
-    ))}
-  </>
-);
+/** All parts riding on one moving group (or the fixed airframe when parent is omitted); during a progressive build, those
+ * built so far. */
+export function Parts({ cat, parent }: { cat: Catalogue; parent?: string }) {
+  const built = useBuiltParts(cat);
+  return <>{cat.partsFor(parent).map((p) => (!built || built.has(p)) && <Part key={p.id} spec={p} cat={cat} />)}</>;
+}
 
 /** Airframe skin: x-ray ghost, painted skin or plain white. */
 export function Shell({ spec }: { spec: ShellSpec }) {

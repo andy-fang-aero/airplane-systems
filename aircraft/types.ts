@@ -35,6 +35,14 @@ export interface AircraftDef {
   pivotX: number;
   /** Scene content in airplane coordinates (rendered inside the picking group). */
   Model: ComponentType;
+  /**
+   * The Model builds itself progressively (airframe first, then systems over several frames) and moves the loader's stages
+   * itself (lib/build.ts); airplanes without it get the loader's stages from the scene (components/scene/Scene.tsx).
+   */
+  progressive?: boolean;
+  /** Called when the page boots on this airplane, before its 3D code has loaded: start slow work early (SR22T: its
+   * fuselage skin, in a worker). */
+  prepare?: () => void;
   /** Optional scene-level effect that needs the model groups (SR20 CAPS parachute). */
   Overlay?: ComponentType<ModelRefs>;
   /** Side-panel body per system. */
