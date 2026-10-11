@@ -96,9 +96,13 @@ export function afRing(c0: number, c1: number, t: number, m: number, n = 16): [n
   return pts;
 }
 
+/** Each table's first column, read once per table rather than on every lookup. */
+const tableXs = new WeakMap<number[][], number[]>();
+
 /** Catmull-Rom interpolation over a table sorted by descending first column (clamped at the ends). */
 export function interp(tab: number[][], col: number, x: number) {
-  const xs = tab.map((r) => r[0]);
+  let xs = tableXs.get(tab);
+  if (!xs) tableXs.set(tab, (xs = tab.map((r) => r[0])));
   let i = 0;
   if (x >= xs[0]) return tab[0][col];
   if (x <= xs[xs.length - 1]) return tab[tab.length - 1][col];
@@ -495,7 +499,20 @@ export interface FuselageOpts {
 export function fuselage({ table, nTop, nBot, tumble, section: sectionOf, profile }: FuselageOpts) {
   const xNose = table[0][0],
     xTail = table[table.length - 1][0];
+  // Skin builders ask for the same stations many times (every triangle sharing a vertex): keep recent sections. They are
+  // shared, so they are frozen outside production builds, where a caller that mutated one would throw.
+  const sections = new Map<number, FuselageSection>();
   const section = (x: number): FuselageSection => {
+    let s = sections.get(x);
+    if (!s) {
+      if (sections.size >= 1 << 17) sections.clear();
+      s = sectionAt(x);
+      if (process.env.NODE_ENV !== "production") Object.freeze(s);
+      sections.set(x, s);
+    }
+    return s;
+  };
+  const sectionAt = (x: number): FuselageSection => {
     const base = {
       hw: interp(table, 1, x),
       hh: interp(table, 2, x),

@@ -13,7 +13,7 @@ import { FW, box, cyl, sph } from "../geometry";
 import type { Elec, Sim, Vent } from "../model";
 import { useSR22T } from "../store";
 import { part } from "./catalogue";
-import { REAR_SEAT } from "./cabin";
+import { FRONT_CUSHION_X, REAR_SEAT } from "./cabin";
 
 /* ---------- valve state (flows.ts and the part animations read these) ---------- */
 type Env = Sim["env"];
@@ -156,12 +156,14 @@ part(() => cyl(0.028, 0.006, "y"), ["environment"], {
   pin: true,
   anim: plateAnim(() => (butterflies(V().vent).defrost ? 1 : 0), "x"),
 });
-// bolted to the inboard end of the A/C evaporator housing (AC.evaporator [1.225, −0.562, 0.33], 0.2 × 0.07 × 0.2 in
-// parts/aircon.ts): same x, bottoms level, flush against its inboard face (z 0.23); below the RH crew seat cushion, aft
-// of the main spar (x ≈ 1.38 at the root, x increases forward). AMM Fig 21-50-1 sheet 3 (PDF p. 521) shows the blower
-// wheel and motor (items 30, 31) on one end of the evaporator (item 22) beside the evaporator duct (item 24) but gives no
-// dimensions, so the end, size and position are approximate.
-export const BLOWER: Vec3 = [1.225, -0.557, 0.18];
+// bolted to the inboard end of the A/C evaporator housing (AC.evaporator, 0.2 × 0.07 × 0.2 in parts/aircon.ts, placed
+// from this point): same x, flush against its inboard face (z 0.235), just outboard of the centre console and 3 cm
+// higher than the evaporator, over the fuel return lines (flows.ts fuelRet); below the RH crew seat cushion, forward of
+// the main spar (x ≈ 1.38 at the root, x increases forward). AMM Fig 21-50-1 sheet 3 (PDF p. 521) shows the blower wheel
+// and motor (items 30, 31) on one end of the evaporator (item 22) beside the evaporator duct (item 24) but gives no
+// dimensions, so the end, size and position are approximate. Station: 0.19 m forward of the FS 143.5 front cushion
+// centre, ahead of the RH wing harness (parts/cabin.ts FRONT_SEAT).
+export const BLOWER: Vec3 = [FRONT_CUSHION_X + 0.19, -0.475, 0.185];
 part(() => box(0.12, 0.08, 0.1), ["environment"], {
   pos: BLOWER,
   color: "#3E7FA8",

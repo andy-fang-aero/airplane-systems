@@ -7,6 +7,7 @@ import type { AircraftDef } from "@/aircraft/types";
 import type { Vec3 } from "./math";
 import type { AircraftId, SysDef, SysId } from "./systems";
 import { useView } from "./view";
+import { setBuild } from "./build";
 
 let FLEET: AircraftDef[] = [];
 /** Called once by aircraft/index.ts with every airplane, in picker order. */
@@ -49,7 +50,10 @@ export function selectSys(id: SysId, fly = true) {
 /** Switch airplane (to its overview, or to `sys` if it has one). */
 export function selectAircraft(id: AircraftId, sys?: SysId) {
   const v = useView.getState();
-  if (v.ac !== id) aircraft(v.ac).onSelect?.("overview");
+  if (v.ac !== id) {
+    aircraft(v.ac).onSelect?.("overview");
+    setBuild("airframe");
+  }
   const def = aircraft(id),
     to = sys && hasSys(def, sys) ? sys : "overview";
   def.onSelect?.(to);

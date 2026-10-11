@@ -871,7 +871,10 @@ flow(
   "fanDuct",
   [
     off(BLOWER, [0.06, 0, 0]),
-    [1.7, -0.63, 0.2],
+    // forward off the blower under the RH crew seat, down to the floor outboard of the fuel return lines;
+    // approximate
+    [1.95, -0.5, 0.215],
+    [2.05, -0.63, 0.22],
     [2.3, -0.56, 0.25],
     [2.47, -0.35, 0.12],
     off(E0, [-0.02, -0.06, 0.05]),
@@ -1058,7 +1061,17 @@ flow("acLiquid", [AC.condenser, [-0.18, AC.receiver[1] - 0.02, 0.08], AC.receive
 });
 flow(
   "acLiquid2",
-  [AC.receiver, [-0.05, -0.47, 0.25], [0.15, -0.47, 0.38], [0.7, -0.47, 0.5], [1.1, -0.5, 0.5], AC.expansion],
+  // over the main spar and the OAT 1 data run to the evaporator under the RH crew seat; approximate
+  [
+    AC.receiver,
+    [-0.05, -0.47, 0.25],
+    [0.15, -0.47, 0.38],
+    [0.7, -0.47, 0.5],
+    [1.1, -0.48, 0.5],
+    [1.4, -0.455, 0.49],
+    [1.55, -0.455, 0.42],
+    AC.expansion,
+  ],
   ["environment"],
   {
     ...REFRIG,
@@ -1072,8 +1085,10 @@ flow(
   "acSuction",
   [
     AC.evaporator,
-    [1.3, -0.53, 0.46],
-    [1.5, -0.46, 0.5],
+    // up off the evaporator's forward outboard corner under the RH crew seat, over the coupler duct;
+    // approximate
+    [1.93, -0.465, 0.4],
+    [2.1, -0.43, 0.43],
     [2.4, -0.41, 0.43],
     [2.61, -0.26, 0.455],
     // the discharge route in reverse, about 25 mm above it on the firewall, under the drive unit and on the LH run, inboard
@@ -1104,16 +1119,23 @@ flow(
     note: "Low-pressure vapor from the evaporator back to the compressor (POH 7-65); 5/8 in compressor hose: its 250–350 in-lb fitting torque matches the evaporator hose at the firewall (AMM 21-50 PDF pp. 501, 505).",
   },
 );
-flow("acDrain", [AC.evaporator, [1.225, botY(1.225) + 0.051, 0.36]], ["environment"], {
-  // The drain ends on the belly's inner face at z 0.36: botY is the keel (z 0), and the nBot-3 belly of the POH 13772-007
-  // Fig 1-1 loft (p. 1-4) sits 43 mm higher at z 0.36; 8 mm more keeps the 6 mm hose inside the skin.
-  r: 0.006,
-  color: "#4E9DB5",
-  pcolor: "#8FD3E8",
-  count: 4,
-  name: "A/C condensate drain",
-  note: "Moisture condensed on the evaporator coils drains overboard through the belly (POH 7-65; AMM 21-50 PDF p. 496); drain hose clamped to a fuselage rivnut (AMM 21-50 PDF p. 504).",
-});
+// The outlet sits 8 cm aft of the evaporator centre, between the coupler duct rising into its underside and
+// the TKS inboard feed line; approximate.
+flow(
+  "acDrain",
+  [AC.evaporator, [AC.evaporator[0] - 0.08, botY(AC.evaporator[0] - 0.08) + 0.051, 0.36]],
+  ["environment"],
+  {
+    // The drain ends on the belly's inner face at z 0.36: botY is the keel (z 0), and the nBot-3 belly of the POH
+    // 13772-007 Fig 1-1 loft (p. 1-4) sits 43 mm higher at z 0.36; 8 mm more keeps the 6 mm hose inside the skin.
+    r: 0.006,
+    color: "#4E9DB5",
+    pcolor: "#8FD3E8",
+    count: 4,
+    name: "A/C condensate drain",
+    note: "Moisture condensed on the evaporator coils drains overboard through the belly (POH 7-65; AMM 21-50 PDF p. 496); drain hose clamped to a fuselage rivnut (AMM 21-50 PDF p. 504).",
+  },
+);
 // A/C air path. Normal A/C: ram air from the fresh-air intake flows into the evaporator assembly, is cooled
 // through the coils and ducted forward to the distribution manifold. Maximum A/C (recirculation): the fresh-air valve
 // closes and valves in the evaporator assembly open, so cabin air is recirculated through the coils and ducted forward to
@@ -1126,9 +1148,10 @@ flow(
     [2.53, -0.58, 0.46],
     // 50 mm inboard of the curved belly (POH 13772-007 Fig 1-1 loft, p. 1-4); approximate
     [2.2, -0.635, 0.37],
-    [1.7, -0.63, 0.36],
-    [1.5, -0.6, 0.33],
-    [1.36, -0.57, 0.33],
+    // along the floor under the passenger floor ducts, then up into the evaporator's underside under the RH crew seat
+    // approximate
+    [1.82, -0.63, 0.36],
+    [1.82, -0.56, 0.345],
     AC.evaporator,
   ],
   ["environment"],
@@ -1144,8 +1167,8 @@ flow(
   "acEvapDuct",
   [
     AC.evaporator,
-    [1.36, -0.575, 0.27],
-    [1.7, -0.6, 0.29],
+    // down off the evaporator's inboard forward corner under the RH crew seat to the floor; approximate
+    [1.86, -0.58, 0.27],
     [2.2, -0.59, 0.33],
     [2.45, -0.5, 0.3],
     [2.56, -0.3, 0.14],
@@ -1482,8 +1505,9 @@ flow(
     [0.95, -0.56, 0.7],
     [1.05, -0.55, 0.5],
     [1.19, -0.55, 0.5],
-    [1.21, -0.48, 0.45],
-    [2.1, -0.47, 0.42],
+    // outboard of the A/C evaporator under the front passenger seat; approximate
+    [1.21, -0.48, 0.46],
+    [2.1, -0.47, 0.45],
     [2.34, -0.42, 0.27],
     [2.38, -0.27, 0.27],
     [2.39, -0.27, -0.26],
@@ -1514,8 +1538,11 @@ flow(
     [0.93, -0.45, 0.945],
     [1.035, -0.465, 0.675],
     [1.155, -0.45, 0.585],
-    [1.26, -0.345, 0.54],
-    [1.275, -0.33, 0.525],
+    // under the front passenger seat pan, outboard of OAT 1, then up forward of the cushion; approximate
+    [1.23, -0.42, 0.56],
+    [1.3, -0.43, 0.53],
+    [1.9, -0.445, 0.52],
+    [2.0, -0.33, 0.42],
     [2.31, -0.25, 0.09],
     [2.355, -0.25, 0.075],
     [2.37, -0.03, 0.06],

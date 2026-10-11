@@ -12,12 +12,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui:m20c": "node scripts/test-m20c-ui.mjs",
+    "test:ui:load": "node scripts/test-load-ui.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm run typecheck && npm test",
+    "check": "npm run format:check && npm run typecheck && npm test && npm run test:trusted-preview",
     "shot": "node scripts/shot.mjs",
     "trace": "node scripts/trace-airframes.mjs",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "test:trusted-preview": "node --test .github/trusted-preview/controller.test.mjs"
   },
   "dependencies": {
     "@react-three/drei": "10.7.8",
@@ -36,6 +38,7 @@
     "@types/three": "0.186.0",
     "playwright-core": "1.56.1",
     "prettier": "3.9.9",
+    "three-mesh-bvh": "0.8.3",
     "typescript": "5.9.3",
     "vitest": "5.0.3"
   }
