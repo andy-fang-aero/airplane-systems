@@ -484,7 +484,7 @@ async function publicationHarness() {
           FAKE_SHARE_VALUE_123: {
             scope: "shareable-link",
             createdAt: h.now,
-            expires: h.now + h.p.shareTtlSeconds * 1000,
+            expires: Math.floor(h.now / 1000) + h.p.shareTtlSeconds,
           },
         },
       }
@@ -500,6 +500,7 @@ test("share positive: exact READY Preview, deployment-scoped TTL and one bot com
   const result = await h.publish();
   assert.equal(result.result, "preview_link_published");
   assert.equal(result.commentId, 7000);
+  assert.equal(result.expires, new Date(Math.floor(h.now / 1000) * 1000 + 86400000).toISOString());
   assert.deepEqual(h.shareWrites, [
     {
       method: "PATCH",
@@ -611,14 +612,35 @@ test("wait transitions BUILDING to READY before sharing", async () => {
   };
   assert.equal((await h.publish()).result, "preview_link_published");
 });
-test("permanent, preexisting and ambiguous share results fail closed", () => {
+test("live Vercel expiry seconds normalize to the correct 24-hour UTC timestamp", () => {
+  const h = harness();
+  const createdAt = 1791691475158;
+  const expires = 1791777875;
+  const share = extractShare(
+    h.p,
+    {
+      protectionBypass: { FAKE_SECRET: { scope: "shareable-link", createdAt, expires } },
+    },
+    createdAt - 100,
+    createdAt + 100,
+  );
+  assert.equal(share.expires, 1791777875000);
+  assert.equal(new Date(share.expires).toISOString(), "2026-10-12T04:04:35.000Z");
+});
+test("permanent, expired, invalid, preexisting and ambiguous share results fail closed", () => {
   const h = harness();
   const now = 1791687000000;
-  const entry = { scope: "shareable-link", createdAt: now, expires: now + 86400000 };
+  const entry = { scope: "shareable-link", createdAt: now, expires: now / 1000 + 86400 };
   for (const map of [
     { FAKE_SECRET: { ...entry, expires: undefined } },
+    { FAKE_SECRET: { ...entry, expires: null } },
+    { FAKE_SECRET: { ...entry, expires: String(entry.expires) } },
+    { FAKE_SECRET: { ...entry, expires: entry.expires + 0.5 } },
+    { FAKE_SECRET: { ...entry, expires: now / 1000 } },
+    { FAKE_SECRET: { ...entry, expires: now / 1000 - 1 } },
+    { FAKE_SECRET: { ...entry, expires: now + 86400000 } },
     { FAKE_SECRET: { ...entry, createdAt: now - 100000 } },
-    { FAKE_SECRET: { ...entry, expires: now + 2 * 86400000 } },
+    { FAKE_SECRET: { ...entry, expires: now / 1000 + 2 * 86400 } },
     { FAKE_SECRET: entry, SECOND_SECRET: entry },
   ])
     assert.throws(() => extractShare(h.p, { protectionBypass: map }, now, now));

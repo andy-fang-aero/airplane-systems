@@ -15,7 +15,7 @@ The approved numeric GitHub IDs are `11378800` (ligolnik) and `340809365` (andy-
 3. Per-PR concurrency and a persistent claim written before the authorization POST prevent automatic replay. Ambiguous responses retain the claim for manual investigation. Do not install a second controller or change the concurrency namespace.
 4. Only the upstream workflow commit is checked out, using a pinned checkout action. No fork code or dependencies execute in this workflow. The Vercel token is provided only to the privileged controller step. Reruns are refused.
 5. The publisher waits up to 20 minutes and verifies team, project, repository, SHA, immutable host, `target: null`, and `readyState: READY`. A separate persistent claim prevents duplicate sharing/comment operations.
-6. A deployment-ID-scoped protection bypass is created with `ttl: 86400`. Only one fresh entry with a bounded expiry is accepted. The comment is created or updated only when owned by the numeric GitHub Actions bot; human lookalike comments are ignored. A stale head after sharing triggers revocation of only the new link.
+6. A deployment-ID-scoped protection bypass is created with `ttl: 86400`. Only one fresh entry with a bounded expiry is accepted. Vercel's `expires` uses Unix seconds; `createdAt` uses milliseconds. The parser converts expiry to milliseconds before checking its bounds and formatting the comment. The comment is created or updated only when owned by the numeric GitHub Actions bot; human lookalike comments are ignored. A stale head after sharing triggers revocation of only the new link.
 
 Links are public bearer URLs: anyone reading the PR can use or forward them. Older links expire naturally; this workflow does not renew links or remove comment history. Project-wide deployment protection remains enabled. Preview code runs with Vercel's configured Preview environment, integrations, and OIDC trust, so changes to those settings require renewed scope review.
 
@@ -31,7 +31,7 @@ The environment secret was confirmed by metadata only. Run a new harmless draft 
 
 `npm run test:trusted-preview` runs isolated Node tests with mocked HTTP. `npm run check` includes these tests. Actionlint checks the workflow separately. No live credentials or network mutations occur in unit tests.
 
-The authorization endpoint is undocumented, although a controlled PR38 test demonstrated HTTP 200 and the exact SHA reaching READY. Share-response parsing and project-token sharing permission still need the new live canary. There is a small unavoidable race between final metadata reads and remote operations; all operations use the pinned SHA. Interrupted mutations may require manual reconciliation.
+The authorization endpoint is undocumented. The PR41 canary demonstrated automatic approval and the exact SHA reaching READY with the project-only token. It also created a deployment-scoped link with a 24-hour expiry, but the original parser rejected the seconds-valued expiry before posting a comment. The corrected parser still needs a fresh canary commit to verify publication and anonymous access; the previous publication claim must not be replayed. There is a small unavoidable race between final metadata reads and remote operations; all operations use the pinned SHA. Interrupted mutations may require manual reconciliation.
 
 Repository maintainers must control main and these workflow/policy files. A main-only environment is not a substitute for branch protection or protection from other main-branch workflows; this change does not alter repository-wide branch rules.
 

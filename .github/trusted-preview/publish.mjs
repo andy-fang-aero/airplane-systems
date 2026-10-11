@@ -81,16 +81,19 @@ export function extractShare(p, response, createdAfter, now) {
   need(entries.length === 1, "AMBIGUOUS_SHARE_RESPONSE");
   const [secret, entry] = entries[0];
   need(/^[A-Za-z0-9_-]{8,256}$/.test(secret), "INVALID_SHARE_SECRET");
-  // `expires` is present in the public getAlias protectionBypass schema. Require
-  // a bounded absolute timestamp; never silently publish a permanent/reused link.
+  // Vercel returns `expires` in Unix seconds, but `createdAt` in milliseconds.
+  // Normalize expiry before comparing with the clock and formatting the comment.
+  // Never silently publish a permanent/reused link.
+  const expires = entry.expires * 1000;
   need(
-    Number.isFinite(entry.expires) &&
-      entry.expires > now &&
-      entry.expires <= createdAfter + p.shareTtlSeconds * 1000 + 30000,
+    Number.isSafeInteger(entry.expires) &&
+      Number.isSafeInteger(expires) &&
+      expires > now &&
+      expires <= createdAfter + p.shareTtlSeconds * 1000 + 30000,
     "UNBOUNDED_OR_EXPIRED_SHARE",
   );
   need(Number.isFinite(entry.createdAt) && entry.createdAt >= createdAfter - 5000, "PREEXISTING_SHARE_REFUSED");
-  return { secret, expires: entry.expires };
+  return { secret, expires };
 }
 
 export async function upsertPreviewComment(io, p, expected, d, share) {
