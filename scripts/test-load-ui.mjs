@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Airplane load in the browser, on the production build. Once each airplane's scene is complete, its final scene must equal
- * the one main a1d3cdf0 built: every mesh and line, compared as a sorted multiset of exact keys (kind, part name, attribute
+ * the reviewed baseline (main a1d3cdf0 plus PR47 seat placement): every mesh and line, compared as a sorted multiset of exact keys (kind, part name, attribute
  * layout, vertex and index counts, index hash) plus sums of their geometry under their local transforms, within tolerances
  * (the last bit of trig differs between runtimes; tests/scene-snapshot.test.ts measures it and checks each part to the
  * micrometre). Objects an animation moves are left out and counted. The camera framing must equal a1d3cdf0's too: the
@@ -506,7 +506,7 @@ try {
       assert.deepEqual(sceneDiff(got.scenes[route], want.scenes[route]), [], `final scene of ${route}`);
     for (const [k, v] of Object.entries(want.cameras))
       assert.ok(!cameraDiff(got.cameras[k], v), `camera for ${k}: ${got.cameras[k]} vs ${v}`);
-    console.log("Final scenes and camera framing match main a1d3cdf0");
+    console.log("Final scenes and camera framing match the reviewed baseline");
   }
 } finally {
   await browser?.close();

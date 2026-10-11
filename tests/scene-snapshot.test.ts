@@ -344,7 +344,7 @@ beforeAll(() => {
   baseline = readBaseline();
 }, 180_000);
 
-describe("catalogue and geometry are unchanged (baseline from main a1d3cdf0)", () => {
+describe("catalogue and geometry are unchanged (baseline from main a1d3cdf0 plus PR47 seat placement)", () => {
   for (const fiki of [true, false]) {
     it(`SR22T parts, shells and surfaces, FIKI ${fiki ? "fitted" : "not fitted"}`, () => {
       const set = `sr22t fiki=${fiki}`;
