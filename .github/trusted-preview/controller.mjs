@@ -219,15 +219,20 @@ export async function hasEndorsement(io, p, pr) {
       !sha(r.workflowSha)
     )
       continue;
-    if (c.details_url !== `https://github.com/${p.repository}/actions/runs/${r.runId}`) continue;
+    // GitHub rewrites custom check URLs to /runs/<check-id>. Bind the check
+    // to its actual Actions check suite instead of trusting a caller-supplied URL.
+    if (!integer(c.check_suite?.id)) continue;
     const run = await get(io, p, `/actions/runs/${r.runId}`);
     if (
+      run.id === r.runId &&
+      run.check_suite_id === c.check_suite.id &&
       run.event === "pull_request_target" &&
       run.path === p.workflowPath &&
       run.run_attempt === 1 &&
       run.actor?.id === r.actorId &&
       run.repository?.id === p.repositoryId &&
-      run.head_sha === r.workflowSha
+      run.head_repository?.id === pr.head.repo.id &&
+      run.head_sha === pr.head.sha
     )
       return true;
   }
