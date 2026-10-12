@@ -11,9 +11,7 @@
  */
 export type Why = "pass" | "enclosure" | "host" | "cable" | "overlap";
 export const CROSSINGS: Record<string, [mm: number, why: Why]> = {
-  "acCoupler / Main spar": [47.7, "pass"],
   "acDischarge / Receiver-drier": [7.0, "overlap"],
-  "acEvapDuct / Main spar": [48.4, "pass"],
   "ailBal / Aileron cable fairlead": [14.7, "cable"],
   "ailBal / Aileron turnbuckle": [13.4, "cable"],
   "ailBal / Filter assembly": [2.7, "overlap"],
@@ -52,7 +50,6 @@ export const CROSSINGS: Record<string, [mm: number, why: Why]> = {
   "elB / Elevator turnbuckle": [13.9, "cable"],
   "elB / Pitch servo bridle cable": [5.4, "cable"],
   "elB / Rudder/elevator pulley gang bracket": [9.7, "cable"],
-  "fanDuct / Main spar": [52.3, "pass"],
   "floorR / Brake bulkhead fitting": [7.7, "overlap"],
   "floorR / Filter assembly": [35.4, "overlap"],
   "floorR / Floor butterfly valve": [15.0, "host"],

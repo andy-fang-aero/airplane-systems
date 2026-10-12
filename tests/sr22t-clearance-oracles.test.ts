@@ -1,8 +1,10 @@
 // Negative controls protect the existing mesh audit during a tests-only refactor.
-import { BoxGeometry } from "three";
+import { BoxGeometry, LineCurve3, Matrix4, Quaternion, TubeGeometry, Vector3 } from "three";
+import { MeshBVH } from "three-mesh-bvh";
 import { expect, it } from "vitest";
 import { doorSolid, doorIntersects } from "./sr22t-door-clearance";
 import { ignitionSolid, ignitionIntersects, sampledGap } from "./sr22t-ignition-clearance";
+import { pitotClearance } from "./sr22t-pitot-clearance";
 
 // Synthetic metre-scale boxes, not aircraft dimensions or installation tolerances.
 const auditCollision = <S extends ReturnType<typeof ignitionSolid>>(
@@ -37,6 +39,40 @@ const auditCollision = <S extends ReturnType<typeof ignitionSolid>>(
 };
 auditCollision("ignition", ignitionSolid, ignitionIntersects);
 auditCollision("door", doorSolid, doorIntersects);
+
+it("the pitot audit rejects surface crossings and complete wire containment", () => {
+  const wire = new TubeGeometry(new LineCurve3(new Vector3(-0.03, 0, 0), new Vector3(0.03, 0, 0)), 4, 0.003, 8);
+  const obstacle = new BoxGeometry(0.2, 0.2, 0.2);
+  const tree = new MeshBVH(wire);
+  try {
+    for (const [x, surfaceIntersection, contained] of [
+      [0.2, false, false],
+      [0.09, true, true],
+      [0, false, true],
+    ] as const) {
+      const result = pitotClearance(tree, obstacle, new Matrix4().makeTranslation(x, 0, 0));
+      expect(result.surfaceIntersection, `obstacle x=${x}`).toBe(surfaceIntersection);
+      expect(result.contained, `obstacle x=${x}`).toBe(contained);
+      // In the enclosed case both original surface-only checks pass despite the collision.
+      if (!surfaceIntersection) expect(result.closest.distance).toBeGreaterThanOrEqual(0.002);
+    }
+    // The obstacle matrix is the renderer's composed parent/local transform, including mirrored scale.
+    wire.translate(2, 1, -3);
+    tree.refit();
+    const matrix = new Matrix4().compose(
+      new Vector3(2, 1, -3),
+      new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 4),
+      new Vector3(-1, 1.5, 1),
+    );
+    const transformed = pitotClearance(tree, obstacle, matrix);
+    expect(transformed.surfaceIntersection).toBe(false);
+    expect(transformed.closest.distance).toBeGreaterThanOrEqual(0.002);
+    expect(transformed.contained).toBe(true);
+  } finally {
+    wire.dispose();
+    obstacle.dispose();
+  }
+});
 
 it("the sampled surface-gap audit rejects a planted sub-5-mm margin", () => {
   const a = ignitionSolid({ id: "a", sys: [], geo: () => new BoxGeometry(0.02, 0.02, 0.02) });
