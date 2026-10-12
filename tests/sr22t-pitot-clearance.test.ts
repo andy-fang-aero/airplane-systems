@@ -8,6 +8,7 @@ import { CAT, TANK_SPAN, TANK_CHORD, NOSE_GEAR, NOSE_CASTER, YOKES, YOKE_X, YOKE
 import { FW, doorHinge, wingSec, loft } from "@/aircraft/sr22t/geometry";
 import { ETT, AIL_SECTOR, RUD_HORN, CARR, PULLEYS } from "@/aircraft/sr22t/rig";
 import { toV, type Vec3 } from "@/lib/math";
+import { pitotClearance } from "./sr22t-pitot-clearance";
 
 // Closed doors and neutral controls, matching the renderer's rest transforms.
 const parents: Record<string, THREE.Matrix4> = {};
@@ -79,14 +80,14 @@ it("pitot heater wiring clears the valve, spar and unrelated cabin/wing solids b
           !/3-way control valve|Main spar|^(Left|Right) (inboard|outboard) panel feed line$/.test(part.name ?? "")
         )
           continue;
-        geo.boundsTree = new MeshBVH(geo);
-        const closest = tree.closestPointToGeometry(geo, matrix)!;
+        const { closest, surfaceIntersection, contained } = pitotClearance(tree, geo, matrix);
         const gap = closest.distance;
         if (gap < 0.02 || /3-way control valve|Main spar|panel feed line/.test(part.name ?? ""))
           console.info(
             `${part.name}: ${(gap * 1000).toFixed(3)} mm at ${closest.point.toArray().map((v) => v.toFixed(3))}`,
           );
-        expect.soft(tree.intersectsGeometry(geo, matrix), `${part.name}: intersection`).toBe(false);
+        expect.soft(surfaceIntersection, `${part.name}: intersection`).toBe(false);
+        expect.soft(contained, `${part.name}: wire inside solid`).toBe(false);
         expect.soft(gap, `${part.name}: surface clearance`).toBeGreaterThanOrEqual(0.002);
       } finally {
         geo.dispose();
