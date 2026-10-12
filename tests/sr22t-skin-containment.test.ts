@@ -87,6 +87,11 @@ const EXTERNAL: { name: string | RegExp; max: number; reason: string; terminalOn
   },
   { name: "Oil filler access door", max: 0.015, reason: "flush cowl door" },
   {
+    name: "Front cowl fastener",
+    max: 0.002,
+    reason: "illustrative screw heads seated 1.5 mm proud of the cowl loft (parts/cowl-fasteners.ts), rounded to 2 mm",
+  },
+  {
     name: /^(Exterior door handle|Exterior handle housing|Door lock cylinder|Baggage door lock)$/,
     max: 0.03,
     reason: "exterior door hardware",
@@ -386,4 +391,18 @@ it("tank vent external allowance covers only its NACA terminal (AMM Fig 28-10-3,
     const planted = { ...vent, pts: [wingP(start.z, 0.45, 1), ...vent.pts.slice(1)] };
     expect(sweep([], [planted]).failures).toEqual([expect.stringMatching(/outside away from its NACA terminal$/)]);
   }
+});
+
+it("front cowl fasteners stay within their illustrative 2 mm external allowance", () => {
+  const fasteners = CAT.parts.filter((p) => p.name === "Front cowl fastener");
+  const original = sweep(fasteners, []);
+  expect(original.failures).toEqual([]);
+  expect(original.found.get("Front cowl fastener")).toBeLessThanOrEqual(0.002);
+  const fastener = fasteners[0];
+
+  // The first screw sits on the right side; displacing it 10 mm outboard must not inherit an unrestricted ext pass.
+  const displaced = { ...fastener, geo: () => fastener.geo().translate(0, 0, 0.01) };
+  expect(sweep([displaced], []).failures).toEqual([
+    expect.stringMatching(/^Front cowl fastener: .* mm outside, budget 2 mm/),
+  ]);
 });

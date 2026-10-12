@@ -310,7 +310,8 @@ export function Model({ overlays = true }: { overlays?: boolean } = {}) {
   // Rebuild scene part lists and the stall warning flows when optional TKS equipment changes (including portal labels).
   const fiki = useSR22T((x) => x.s.equip.fiki);
   const shown = useEngineGroups((x) => x.shown);
-  const engineView = useView((x) => x.sys === "engine");
+  // Study filters are suspended during preflight; observing walking also rebuilds part lists on exit.
+  const engineView = useView((x) => x.sys === "engine" && !x.walking);
   const flows = useMemo(() => {
     const all = flowsFor(fiki);
     if (!engineView) return all;
