@@ -189,11 +189,14 @@ const objectSummaries = (page, remeshed) =>
     return out;
   }, remeshed);
 
-/** Final-scene fingerprint: summaries taken twice 400 ms apart; objects that changed in between are animated and left
- * out. The exact keys form a sorted multiset hash; the numbers are summed over the scene. */
+/** Final-scene fingerprint: summaries taken twice, at least 400 ms and one rendered frame apart; objects that changed in
+ * between are animated and left out. The exact keys form a sorted multiset hash; the numbers are summed over the scene. */
 async function fingerprint(page) {
   const a = await objectSummaries(page, REMESHED);
+  // Animations advance only on rendered frames, and the software renderer can stall past 400 ms: wait for a frame too.
+  const frame = await page.evaluate(() => window.__marks.frames);
   await page.waitForTimeout(400);
+  await page.waitForFunction((f) => window.__marks.frames > f, frame);
   const b = await objectSummaries(page, REMESHED);
   assert.equal(a.length, b.length, "the scene changed size while settled");
   const stable = a.filter((x, i) => JSON.stringify(x) === JSON.stringify(b[i]));
