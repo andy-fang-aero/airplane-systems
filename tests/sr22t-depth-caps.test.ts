@@ -150,9 +150,13 @@ describe("SR22T CAPS mechanical activation", () => {
       for (const other of hardware)
         for (const b of partBoxes(other))
           expect(worldBox(one(name)).intersectsBox(b), `${name} / ${other.name ?? other.id}`).toBe(false);
-    // Illustrative aft bend is pinned separately from the source-based shoulder relation.
-    expect(CAPS_CABLE[2]).toEqual([0.85, 0.685, -0.06]);
-    expect(CAPS_CABLE[3]).toEqual([0.82, 0.59, -0.12]);
+    // Front-seat placement moved the handle forward; its first roof bends now clear the overhead oxygen console
+    // and speaker at z -0.12 (front-seat integration). Pin those illustrative bends separately from the shoulder relation.
+    expect(CAPS_CABLE[2][0]).toBeCloseTo(1.3051, 6);
+    expect(CAPS_CABLE[2].slice(1)).toEqual([0.698, -0.12]);
+    expect(CAPS_CABLE[3]).toEqual([1.0, 0.698, -0.12]);
+    expect(CAPS_CABLE[4]).toEqual([0.85, 0.685, -0.12]);
+    expect(CAPS_CABLE[5]).toEqual([0.82, 0.59, -0.12]);
     expect(CAPS_CABLE[2][0]).toBeLessThan(CAPS_CABLE[0][0]);
   });
 
