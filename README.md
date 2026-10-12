@@ -13,6 +13,7 @@ npm install
 npm run dev        # http://localhost:3000
 npm run build      # production build
 npm run test:ui:m20c # desktop and phone browser regressions (after build; also run in CI)
+npm run test:ui:sr20 -- http://localhost:3000 # SR20 guided preflight, against a running server
 npm run check      # formatting, typecheck and tests (what CI runs, plus the build)
 npm run format     # format everything with Prettier
 npm run shot -- c172s/electrical   # screenshot a view (or an airplane, or "all") into .shots/
@@ -77,6 +78,12 @@ How to add an airplane, and where each kind of code goes: [aircraft/README.md](a
 ## Sources
 
 SR20 (each other airplane cites its POH/AFM, supplements and CRG in its files and panels):
+
+The SR20 G6 component expansion, optional ADAHRS interactions and 86-item guided preflight are documented in
+[SR20 sources and applicability](aircraft/sr20/SOURCES.md). It records the inspected POH Revision A1 pages, SR20 AMM
+12137-002, Lycoming installation/maintenance/parts manuals, Garmin guide and COPA discussions, with exact source
+locations, configuration boundaries and document disagreements. The early G6 Lycoming model does not reuse older
+Continental SR20 or SR22T engine systems.
 
 - Cirrus SR20 POH, P/N 11934-005 Reissue A — Section 7 (systems), Section 1 Figure 1-1 (three view, used for the fuselage profile), Section 2 limits and markings, Sections 3 and 3A (CAS message names, best glide), the Section 4 speeds used on the PFD, and the Section 5 cruise table (percent power).
 - Garmin Cirrus Perspective+ Pilot's Guide 190-02183-03 and the Cirrus Perspective+ brochure — display layout and bezels.

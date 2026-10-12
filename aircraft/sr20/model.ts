@@ -10,7 +10,7 @@ export type Vent = "P" | "PF" | "PFW" | "W";
 export type CabinSwitch = "OFF" | "ON" | "AUTO";
 
 export interface Sim {
-  eng: { running: boolean; key: Key; lever: number; mix: number; altAir: boolean };
+  eng: { running: boolean; key: Key; lever: number; mix: number; altAir: boolean; filterBlocked: boolean };
   elec: {
     bat1: boolean;
     bat2: boolean;
@@ -41,13 +41,13 @@ export interface Sim {
     land: boolean;
     ice: boolean;
   };
-  avx: { backup: boolean; pfdFail: boolean };
+  avx: { backup: boolean; pfdFail: boolean; dualAdahrs: boolean; ahrs1Fail: boolean; ahrs2Fail: boolean };
   /** CAPS deployment active (time itself lives in `live`). */
   capsOn: boolean;
 }
 
 export const initialSim: Sim = {
-  eng: { running: true, key: "BOTH", lever: 0.72, mix: 0.85, altAir: false },
+  eng: { running: true, key: "BOTH", lever: 0.72, mix: 0.85, altAir: false, filterBlocked: false },
   elec: {
     bat1: true,
     bat2: true,
@@ -66,7 +66,7 @@ export const initialSim: Sim = {
   pitot: { heat: true, oat: 8, heaterFail: false, alt: false },
   stall: { aoa: 6, fault: false },
   lights: { cabin: "AUTO", door: false, unlocked: false, bag: false, nav: true, strobe: true, land: false, ice: false },
-  avx: { backup: false, pfdFail: false },
+  avx: { backup: false, pfdFail: false, dualAdahrs: true, ahrs1Fail: false, ahrs2Fail: false },
   capsOn: false,
 };
 
@@ -100,6 +100,9 @@ export interface Elec extends Record<BusId, number> {
   pfd: boolean;
   mfd: boolean;
   stby: boolean;
+  /** Optional second GSU 75 has a separate supply; neither unit powers the independent MD302 (POH 7-72, 7-76). */
+  ahrs1: boolean;
+  ahrs2: boolean;
   flapsPwr: boolean;
   pitotPwr: boolean;
   stallPwr: boolean;
@@ -186,6 +189,8 @@ export function solve(s: Sim): Elec {
     pfd: !s.avx.pfdFail && (pw("ess1", "PFD A") || pw("main2", "PFD B")),
     mfd: pw("main3", "MFD A") || pw("main1", "MFD B"),
     stby: pw("ess1", "STDBY ATTD A") || pw("main1", "STDBY ATTD B"),
+    ahrs1: pw("ess1", "ADAHRS 1") && !s.avx.ahrs1Fail,
+    ahrs2: s.avx.dualAdahrs && pw("main2", "ADAHRS 2") && !s.avx.ahrs2Fail,
     flapsPwr: pw("nonEss", "FLAPS"),
     pitotPwr: pw("nonEss", "PITOT HEAT"),
     stallPwr: pw("ess2", "STALL WARNING"),
@@ -206,6 +211,8 @@ export function solve(s: Sim): Elec {
 }
 
 export const fuelAvail = (s: Sim) => s.fuel.sel !== "OFF" && (s.fuel.sel === "L" ? s.fuel.qL : s.fuel.qR) > 0.05;
+/** Pilot-operated alternate induction air bypasses a blocked paper filter (POH 7-34, 7-39). */
+export const inductionAvailable = (s: Sim) => !s.eng.filterBlocked || s.eng.altAir;
 export const mapInHg = (s: Sim, rpm: number) =>
   rpm < 200 ? 29.9 : +(11.5 + s.eng.lever * 17.8 - (s.eng.altAir ? 0.6 : 0)).toFixed(1);
 export const bladeAngle = (s: Sim) => 14 + s.eng.lever * 20;

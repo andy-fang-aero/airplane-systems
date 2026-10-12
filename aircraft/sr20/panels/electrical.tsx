@@ -99,8 +99,8 @@ export function Electrical() {
     <>
       <p className="lead">
         Two alternators and two batteries feed three distribution buses inside the Master Control Unit. A diode lets
-        Main Dist Bus 1 back up Bus 2 but never the reverse, and the essential buses can be fed from every source — so a
-        single failure never takes out the flight-critical loads.
+        Main Dist Bus 1 back up Bus 2 but never the reverse. The essential buses can be fed from every source, so
+        remaining sources can continue supplying the flight-critical loads (POH 7-49–7-53).
       </p>
       <H3>Bolster master switches</H3>
       <Ctl>
@@ -269,7 +269,7 @@ export function Electrical() {
         Main Dist Bus 1, Main Dist Bus 2 and the Ess Dist Bus are inside the Master Control Unit; the buses below them
         are on the circuit-breaker panel, the main and A/C buses grouped by the distribution bus that feeds them. With
         both alternators failed BAT 1 feeds the Ess Dist Bus directly; with BAT 1 gone too, BAT 2 feeds ESS BUS 1, and
-        ESS BUS 2 back through ESSENTIAL POWER (POH 7-52). Pull ESSENTIAL POWER, BAT 2 or AVIONICS below, or flip a
+        ESS BUS 2 back through ESSENTIAL POWER (POH 7-52–7-55). Pull ESSENTIAL POWER, BAT 2 or AVIONICS below, or flip a
         switch, to watch it change.
       </Small>
       <H3>Battery endurance (rule of thumb)</H3>
@@ -300,7 +300,44 @@ export function Electrical() {
           ["ALT 1 start", "Needs BAT 1 on"],
           ["ALT 2 start", "Needs BAT 1 or BAT 2 on"],
           ["External power", "28 V regulated; BAT 1 must be on"],
-          ["Lightning", "TVS suppressors at bus entry points"],
+          ["Lightning", "Two console TVS plus eight harness TVS with dual ADAHRS (AMM 24-50 p. 3)"],
+        ]}
+      />
+      <H3>Inside the MCU and its wiring</H3>
+      <Facts
+        rows={[
+          [
+            "Alternator control",
+            "Separate field relays and voltage regulators; ALT switches control field power, not the output cables",
+          ],
+          ["ALT 1 field", "5 A ALT 1 breaker on A/C BUS 1; BAT 1 needed for initial excitation (POH 7-55)"],
+          ["ALT 2 field", "5 A ALT 2 breaker on ESS BUS 2; BAT 1 or BAT 2 needed for initial excitation (POH 7-55)"],
+          [
+            "MCU contactors",
+            "BAT 1, starter and external-power relays; BAT 2 relay is next to its battery (AMM 24-30 pp. 4–5)",
+          ],
+          [
+            "MCU sensing",
+            "Three current shunts send measurements to the GEA engine airframe unit (AMM 24-30 p. 5; POH 7-56)",
+          ],
+          [
+            "Source protection",
+            "ALT 1: 100 A fuse; BAT 1 main feed: 125 A in Fig 7-10; MDB 1 → MDB 2: 80 A fuse and diode",
+          ],
+          ["Essential protection", "Two 50 A feeds into ESS DIST; eight separate 30 A breaker-bus feeders (POH 7-51)"],
+          ["BAT 2 construction", "Series connection gives 24 V at 7 Ah; a local relay connects it to ESS BUS 1"],
+          [
+            "Ground power contacts",
+            "Two longer power contacts and one short relay-control contact; reverse polarity prevents relay engagement (AMM 24-40 p. 1)",
+          ],
+        ]}
+      />
+      <Notes
+        items={[
+          "Source disagreement: POH 7-51 text specifies an 80 A ALT 2 output fuse, while Fig 7-10 (7-50) and SR20 AMM 24-30 p. 1 / 24-50 p. 1 specify 60 A. The model uses the POH text and records the disagreement; it does not imply a maintenance replacement rating.",
+          "Both SR20 IO-390 alternators are belt driven. The right-front 100 A and left-front 70 A units use separate schematic belt lanes. SR22T alternator drives and voltage settings are not substituted.",
+          "MCU component positions, harness lanes and cable sizes are schematic. Relays glow with control power; digital data and electrical power use separate paths. External power hardware is shown, but connecting a ground source is not simulated.",
+          "The constant-power CONV bus connects to BAT 1 ahead of its master relay, through a 5 A fuse on top of the MCU. It powers the convenience-light controller and optional gateway even with the masters off.",
         ]}
       />
       <Caution title="Caution">

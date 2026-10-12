@@ -16,8 +16,12 @@ import { drawMfdScreen, drawOff, drawPfdScreen, drawStandby } from "./displays";
 import { FLOWS, cabinAirColor, flowRates, isCabinAir } from "./flows";
 import { loft, windowOutlines, wingSec } from "./geometry";
 import { bladeAngle, cabinLit, extLit, live } from "./model";
-import { CAT, CYLS, LIGHTS, NOSE_CASTER, NOSE_GEAR, PROP, YOKES, YOKE_X, YOKE_Y } from "./parts";
+import { CAT, CYLS, LIGHTS, NOSE_CASTER, NOSE_GEAR, PROP, TANK_CHORD, TANK_SPAN, YOKES, YOKE_X, YOKE_Y } from "./parts";
 import { useSR20 } from "./store";
+import { engineHidden } from "./engine-groups";
+import { useEngineGroups } from "./engine-group-store";
+import { isOptionalPitotFlow } from "./fuel-pitot-depth-flow";
+import { electricalAvionicsFlowFitted } from "./electrical-avionics-depth-flow";
 
 const P = ({ parent }: { parent?: string }) => <Parts cat={CAT} parent={parent} />;
 
@@ -130,7 +134,7 @@ const TANKS: TankSpec[] = (
 ).map(([k, s]) => ({
   key: k,
   geo: () => {
-    const secs = [0.95, 1.6, 2.4, 3.2, 4.0, 4.5].map((z) => wingSec(s * z, 0.1, 0.6, 0.85));
+    const secs = [TANK_SPAN[0], 1.6, 2.4, 3.2, 4.0, TANK_SPAN[1]].map((z) => wingSec(s * z, ...TANK_CHORD, 0.85));
     return loft(s < 0 ? secs.map((r) => r.reverse()) : secs);
   },
   level: () => {
@@ -138,7 +142,7 @@ const TANKS: TankSpec[] = (
     return (k === "L" ? f.qL : f.qR) / 28;
   },
   name: (s > 0 ? "Right" : "Left") + " wing tank",
-  note: "Integral wet-wing tank: 29.3 gal capacity, 28 gal usable. Float-type quantity sensor.",
+  note: "Integral wet-wing tank: 29.3 gal capacity, 28 gal usable. Inboard and outboard float-type quantity sensors (POH 7-41, AMM 28-40). Tank outline and level are schematic.",
 }));
 
 /* ---------- live cockpit displays ---------- */
@@ -242,6 +246,20 @@ const flowColor = (k: string, out: THREE.Color) => {
 
 /** The SR20 G6 scene: airframe shells, control surfaces, moving assemblies, tanks, displays, lights. */
 export function Model() {
+  const shown = useEngineGroups((x) => x.shown);
+  const engineView = useView((x) => x.sys === "engine" && !x.walking);
+  // Reading the option rebuilds Parts' fitted lists when the second GSU is removed.
+  const dualAdahrs = useSR20((x) => x.s.avx.dualAdahrs);
+  const flows = useMemo(
+    () =>
+      FLOWS.filter(
+        (flow) =>
+          (!engineView || !engineHidden(flow, "engine", shown)) &&
+          (dualAdahrs || !isOptionalPitotFlow(flow.key)) &&
+          electricalAvionicsFlowFitted(flow, useSR20.getState().s),
+      ),
+    [shown, engineView, dualAdahrs],
+  );
   return (
     <>
       <Shells cat={CAT} />
@@ -253,7 +271,7 @@ export function Model() {
       <Yokes />
       <ControlRig />
       <Tanks tanks={TANKS} />
-      <Flows flows={FLOWS} rates={rates} color={flowColor} />
+      <Flows flows={flows} rates={rates} color={flowColor} />
       <Screens screens={SCREENS} />
       <LightFX glows={GLOWS} beams={BEAMS} />
       <WindowOutlines loops={windowOutlines} />

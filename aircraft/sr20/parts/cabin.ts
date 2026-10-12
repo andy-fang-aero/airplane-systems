@@ -6,10 +6,10 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { mergeGeos, roundEnds, sweepGeo } from "@/lib/geometry";
-import { toVec3, type Vec3 } from "@/lib/math";
-import { box, cyl, sectionSlab, wingP } from "../geometry";
-import { PEDAL_TT } from "../rig";
+import { clamp, ease, type Vec3 } from "@/lib/math";
+import { box, cyl, sectionSlab, tubeGeo } from "../geometry";
 import { useSR20 } from "../store";
+import { live } from "../model";
 import { part, selPtrAnim } from "./catalogue";
 
 /* ---------- cockpit / cabin ---------- */
@@ -190,34 +190,47 @@ part(() => box(0.4, 0.18, 0.02), ["electrical"], {
   note: "Left side of the center console. Holds ESS 1/2, MAIN 1/2/3, NON ESS, A/C 1/2 and AVIONICS bus breakers.",
   pin: true,
 });
-(
-  [
-    [1.25, -0.33, "Pilot seat", 0.4],
-    [1.25, 0.33, "Front passenger seat", 0.4],
-    [0.35, -0.24, "Rear seat (2+1 bench)", 0.46],
-    [0.35, 0.28, "Rear seat", 0.4],
-  ] as [number, number, string, number][]
-).forEach(([x, z, name, w], i) => {
-  part(() => box(0.48, 0.1, w), ["cabin"], {
-    pos: [x, -0.4, z],
+for (const [z, name] of [
+  [-0.33, "Pilot seat"],
+  [0.33, "Front passenger seat"],
+] as const) {
+  part(() => box(0.48, 0.1, 0.4), ["cabin"], {
+    pos: [1.25, -0.4, z],
     color: "#6B5A48",
     name,
-    note:
-      i < 2
-        ? "Adjusts fore/aft on an upward-angled track. Honeycomb core crushes to absorb vertical impact — never stand on it."
-        : "Seat backs split 60/40 and fold forward for long cargo.",
+    fairing: true,
+    pin: true,
+    note: "Individually adjustable front seat on upward-angled fore/aft tracks, with an integral aluminum-honeycomb energy-absorption core. Do not kneel or stand on the seat (POH11934-0057-27–28;AMM12137-00225-10p1). Upholstery is translucent in X-ray to expose hardware; dimensions approximate.",
   });
-  part(() => box(0.09, 0.58, w * 0.92), ["cabin"], {
-    pos: [x - 0.27, -0.08, z],
+  part(() => box(0.09, 0.58, 0.368), ["cabin"], {
+    pos: [0.98, -0.08, z],
     rot: [0, 0, 0.2],
     color: "#6B5A48",
     name,
-    note:
-      i < 2
-        ? "4-point harness with inflatable shoulder belt (airbag)."
-        : "3-point harness on inertia reels at the rear bulkhead.",
+    fairing: true,
+    note: "Reclining front seat back with integral headrest, four-point inflatable restraint and seat-back dual inertia reels. Folds forward for rear-seat access (POH7-28–30;AMM25-10p1). Back angle and dimensions approximate.",
   });
+}
+part(() => box(0.48, 0.1, 0.98), ["cabin"], {
+  pos: [0.35, -0.4, 0],
+  color: "#6B5A48",
+  name: "Rear seat (2+1 bench)",
+  fairing: true,
+  pin: true,
+  note: "One-piece rear bench in the optional 2+1 configuration; wider LH seat back provides a center seat/restraint area, with 60/40 split seat backs (POH7-29). Three-restraint option shown. Other SR20s have an observer's seat or two rear harnesses (AMM25-10p1). Bench proportions schematic.",
 });
+for (const [z, w, name] of [
+  [-0.196, 0.588, "Rear seat (2+1 bench)"],
+  [0.294, 0.392, "Rear seat"],
+] as const)
+  part(() => box(0.09, 0.58, w * 0.96), ["cabin"], {
+    pos: [0.08, -0.08, z],
+    rot: [0, 0, 0.2],
+    color: "#6B5A48",
+    name,
+    fairing: true,
+    note: "60/40 split rear seat back, independently reclinable and foldable forward for long cargo. Cargo net is not functional with backs folded; use tie-down straps (POH7-27,7-29). Geometry and recline angle approximate.",
+  });
 export const YOKES = [
   { side: "L", z: -0.46 },
   { side: "R", z: 0.46 },
@@ -304,41 +317,7 @@ YOKES.forEach(({ side }) => {
     note: "Red autopilot disconnect button on the head of each yoke: disengages the GFC 700.",
   });
 });
-part(() => box(0.08, 0.05, 0.05), ["controls"], {
-  pos: [-2.66, 0.05, 0.04],
-  color: "#9F85E6",
-  chan: ["elevator"],
-  name: "Pitch trim cartridge",
-  note: "Electric motor shifts the spring cartridge's neutral point. 2 A PITCH TRIM breaker, ESS BUS 2.",
-});
-part(() => box(0.08, 0.04, 0.06), ["controls"], {
-  pos: toVec3(wingP(-3.4, 0.66, 0)),
-  color: "#9F85E6",
-  chan: ["aileron"],
-  name: "Roll trim cartridge",
-  note: "Spring cartridge at the left actuation pulley. Autopilot also uses it. 2 A ROLL TRIM, ESS BUS 2.",
-});
-part(() => box(0.08, 0.04, 0.06), ["controls"], {
-  pos: [PEDAL_TT.x - 0.05, PEDAL_TT.y, -0.22],
-  color: "#9F85E6",
-  chan: ["rudder"],
-  name: "Yaw trim spring cartridge",
-  note: "Centering spring on the pedal torque tube. Ground-adjustable only.",
-});
 export const FT = { x: 0.66, y: -0.54 };
-part(() => cyl(0.02, 1.9, "z"), ["flaps"], {
-  pos: [FT.x, FT.y, 0],
-  color: "#9F85E6",
-  name: "Flap torque tube",
-  note: "Mechanically ties both flaps to one actuator.",
-});
-part(() => box(0.24, 0.07, 0.09), ["flaps"], {
-  pos: [FT.x + 0.02, FT.y + 0.02, 0],
-  color: "#7C57CF",
-  name: "Flap actuator",
-  note: "Motorized linear actuator; proximity switches stop travel and drive the position lights. 10 A FLAPS, NON ESS BUS.",
-  pin: true,
-});
 // POH 7-23: at the bottom of the console's vertical section. Fig. 7-4 (7-14/7-15) item 10 is the panel between the avionics panel
 // (15) and the engine controls (13), knob on its right: here at the foot of the upright avionics panel, right of centre.
 part(() => box(0.04, 0.04, 0.07), ["flaps"], {
@@ -361,14 +340,66 @@ part(() => box(0.04, 0.03, 0.04), ["fuel"], {
   name: "BOOST PUMP switch",
   note: "Next to the selector. On for takeoff, climb, maneuvering, landing and tank switching.",
 });
-part(() => new THREE.CylinderGeometry(0.012, 0.012, 0.1, 8), ["caps", "cabin"], {
-  pos: [1.3, 0.63, -0.02],
+/** Horizontal stowed handle above the front-seat shoulder/back reference (POH 7-98).
+ * Longitudinal station 1.04 and all recess dimensions are illustrative, not surveyed installation dimensions. */
+export const CAPS_HANDLE_POS: Vec3 = [1.04, 0.63, 0];
+export const CAPS_HANDLE_ATTACH: Vec3 = [CAPS_HANDLE_POS[0] - 0.045, CAPS_HANDLE_POS[1] + 0.012, 0];
+/** Slack take-up is shown as a five-centimeter downward handle movement; timing is illustrative. */
+export const capsHandleDrop = (t: number) => (t < 0 ? 0 : 0.05 * ease(clamp(t / 0.15, 0, 1)));
+part(
+  () =>
+    mergeGeos([cyl(0.012, 0.09, "x", 20).translate(-0.0125, 0, 0), cyl(0.012, 0.15, "z", 20).translate(0.045, 0, 0)]),
+  ["caps", "cabin"],
+  {
+    pos: CAPS_HANDLE_POS,
+    color: "#D32640",
+    name: "CAPS activation T-handle",
+    pin: true,
+    anim: (m) => {
+      m.position.y = CAPS_HANDLE_POS[1] - capsHandleDrop(live.capsT);
+    },
+    note: "Ceiling centerline above the pilot's right shoulder; retained in its receptacle by an O-ring. Remove the placarded hook-and-loop cover using its black forward tab; take out approximately 2 in. (5 cm) cable slack, then pull straight downward with both hands and steady continuous force. Up to 45 lb (20.4 kg), or greater, may be required to arm and release the electronic igniter switch plunger (POH 11934-005 7-98). Longitudinal station follows the model's front-seat shoulder reference; horizontal stowed orientation, position, geometry and animation timing illustrative.",
+  },
+);
+part(
+  () =>
+    mergeGeos([
+      box(0.188, 0.03, 0.016).translate(0, 0, -0.096),
+      box(0.188, 0.03, 0.016).translate(0, 0, 0.096),
+      box(0.016, 0.03, 0.176).translate(-0.086, 0, 0),
+      box(0.016, 0.03, 0.176).translate(0.086, 0, 0),
+    ]),
+  ["caps", "cabin"],
+  {
+    pos: CAPS_HANDLE_POS,
+    color: "#4A535B",
+    name: "CAPS handle receptacle",
+    pin: true,
+    pinIn: ["caps"],
+    note: "Overhead handle retainer/receptacle, with the O-ring retaining the handle and provisions for the maintenance safety pin (POH 7-98–99). Open rim exposes the handle in X-ray. Dimensions and placement approximate.",
+  },
+);
+part(() => box(0.18, 0.006, 0.21), ["caps", "cabin"], {
+  pos: [CAPS_HANDLE_POS[0], 0.612, 0],
   color: "#D32640",
-  name: "CAPS activation T-handle",
-  note: "Ceiling, centerline, above the pilot's right shoulder. Pull ~2 in. of slack, then pull straight down (up to 45 lb).",
+  name: "CAPS activation handle cover",
   pin: true,
+  anim: (m) => {
+    m.visible = live.capsT < 0;
+  },
+  note: "Placarded cover retained by hook-and-loop fasteners, preventing tampering with the activation handle (POH 7-98). Removed before the handle is pulled; hidden during the deployment sequence. Size approximate.",
 });
-part(() => box(0.03, 0.02, 0.15), ["caps", "cabin"], { pos: [1.3, 0.58, -0.02], color: "#D32640" });
+part(() => box(0.03, 0.004, 0.025), ["caps", "cabin"], {
+  pos: [CAPS_HANDLE_POS[0] + 0.1, 0.607, 0],
+  color: "#151515",
+  name: "CAPS cover black forward tab",
+  pin: true,
+  pinIn: ["caps"],
+  anim: (m) => {
+    m.visible = live.capsT < 0;
+  },
+  note: "Black tab on the forward edge of the activation-handle cover (POH 7-98). Pulling it removes the cover. Size approximate.",
+});
 part(() => cyl(0.04, 0.24), ["cabin"], {
   pos: [2.18, -0.45, -0.44],
   color: "#D32640",
@@ -403,3 +434,204 @@ part(() => box(0.05, 0.05, 0.03), ["engine"], {
   name: "ALT AIR – PULL knob",
   note: "On the left side of the console near the pilot's right knee. Press the lock button, pull, release: opens the alternate air door. Use if induction filter blockage is suspected (POH Section 7, Alternate Air Control).",
 });
+
+/** Seat and restraint hardware: POH 7-27–31; AMM 12137-002 25-10 pp. 1, 18–27. */
+export const RESTRAINT_EMA: Vec3 = [1.05, -0.61, -0.22];
+export const RESTRAINT_INFLATOR = (s: number): Vec3 => [0.91, -0.25, s * 0.33];
+for (const side of [-1, 1]) {
+  const z = side * 0.33;
+  for (const d of [-0.14, 0.14])
+    part(() => box(0.64, 0.015, 0.025), ["cabin"], {
+      pos: [1.25, -0.482, z + d],
+      rot: [0, 0, 0.09],
+      color: "#7A858E",
+      name: "Front seat track",
+      pin: side < 0 && d < 0,
+      note: "Two tracks per crew seat, angled upward toward the front so forward adjustment also raises the occupant. The handle below the forward cushion releases the lock pins; verify the seat relocks after adjustment (POH 7-28; AMM 25-10 pp. 3–8). Track dimensions, slope and holes schematic.",
+    });
+  part(() => box(0.04, 0.025, 0.07), ["cabin"], {
+    pos: [1.51, -0.46, z],
+    color: "#8B949B",
+    name: "Front seat position control",
+    pin: side < 0,
+    note: "Lift handle below the forward edge of the seat cushion to slide the seat, then release and check locked engagement (POH 7-28). Shown with an illustrative lock-pin carrier; no moving-seat simulation.",
+  });
+  part(() => box(0.02, 0.05, 0.025), ["cabin"], {
+    pos: [0.98, -0.3, z + side * 0.19],
+    color: "#42494D",
+    name: "Seat recline release lever",
+    pin: side < 0,
+    note: "Release lever on each side of each front seat back. With the back unloaded, operating the release returns it upright; it also permits folding forward for rear access (POH 7-28). Geometry and lever position approximate.",
+  });
+  part(() => box(0.32, 0.055, 0.3), ["cabin"], {
+    pos: [1.25, -0.435, z],
+    color: "#D7B970",
+    fairing: true,
+    name: "Seat energy-absorption core",
+    pin: side < 0,
+    note: "Aluminum honeycomb energy-absorption module integral to the seat bottom; designed to crush under downward impact loads. Do not kneel or stand on the seat (POH 7-27; AMM 25-10 p. 1). Core outline and thickness schematic.",
+  });
+  part(() => mergeGeos([-1, 1].map((d) => cyl(0.022, 0.025, "z").translate(0, 0, d * 0.045))), ["cabin"], {
+    pos: [0.935, 0.145, z],
+    color: "#717D85",
+    name: "Front shoulder-harness inertia reels",
+    pin: side < 0,
+    note: "Dual inertia-reel retractor mounted in each front seat back. Allows upper-torso movement and locks automatically during sudden deceleration; shoulder harness joins the lap restraint as a four-point system (POH 7-29; AMM 25-10 Fig 25-10-4 sheet 1). Size and position approximate.",
+  });
+  for (const d of [-1, 1])
+    part(
+      () =>
+        tubeGeo(
+          [
+            [0.94, 0.15, z + d * 0.055],
+            [1.01, 0.19, z + d * 0.1],
+            [1.14, -0.02, z + d * 0.07],
+            [1.4, -0.28, z],
+          ],
+          0.009,
+        ),
+      ["cabin"],
+      {
+        color: "#454A4D",
+        name: "Front inflatable shoulder harness",
+        pin: side < 0 && d < 0,
+        note: "Inflatable shoulder straps of the four-point front restraint, fed by the inflator hose from the seat-mounted inflator. Airbag inflates in a qualifying crash pulse then deflates for egress (POH 7-29–30; AMM 25-10 pp. 1, 18–21). Webbing path and width illustrative, shown without an occupant.",
+      },
+    );
+  part(() => cyl(0.019, 0.13, "z"), ["cabin"], {
+    pos: RESTRAINT_INFLATOR(side),
+    color: "#8B9EAA",
+    name: "Front seat restraint inflator",
+    pin: side < 0,
+    note: "Stored-gas inflator clamped to the aft seat frame; receives the crash-sensor signal and feeds the inflatable shoulder harness through a hose (POH 7-30; AMM 25-10 pp. 20–21, Fig 25-10-4 sheet 1). Size and mounting offsets approximate; the study model does not simulate airbag deployment.",
+  });
+}
+part(() => box(0.12, 0.035, 0.09), ["cabin"], {
+  pos: RESTRAINT_EMA,
+  color: "#C9A755",
+  name: "Inflatable restraint electronic module",
+  pin: true,
+  note: "Below the cabin floor: crash sensor, battery and circuitry evaluate deceleration and signal both front-seat inflators. It has its own battery; independent of aircraft bus power (POH 7-30; AMM 25-10 pp. 1, 18–24). Installation under the LH crew seat is accessible through CF2L. Position and dimensions schematic.",
+});
+for (const z of [-0.34, -0.04, 0.3]) {
+  part(() => cyl(0.025, 0.04, "z"), ["cabin"], {
+    pos: [-0.44, 0.14, z],
+    color: "#717D85",
+    name: "Rear shoulder-harness inertia reel",
+    pin: z < -0.3,
+    note: "Baggage-compartment rear bulkhead inertia reel feeds a rear three-point harness; lap belts attach to cabin-floor fittings (POH 7-29). Three-harness option shown for the 2+1 bench; the AMM also lists a two-harness standard configuration (AMM 25-10 p. 1). Attachment offsets and reel size schematic.",
+  });
+  part(() => box(0.035, 0.035, 0.025), ["cabin"], {
+    pos: [-0.46, 0.22, z],
+    color: "#7A858E",
+    name: "Child-seat top tether anchor",
+    pin: z < -0.3,
+    note: "One of three top-tether anchors on the rear bulkhead for the 2+1 configuration. Route the tether through the seat-back pass-through, never over or around the back (POH 7-31; AMM 25-10 pp. 1–2). Size and spacing approximate.",
+  });
+}
+for (const z of [-0.42, -0.18, 0.18, 0.42])
+  part(() => cyl(0.008, 0.05, "z", 12), ["cabin"], {
+    pos: [0.11, -0.36, z],
+    color: "#7A858E",
+    name: "Child-seat lower LATCH anchor",
+    pin: z < -0.4,
+    note: "Lower anchors in the two outboard rear bench positions accept two LATCH-compliant child seats; the center position instead uses the center seat belt (POH 7-31). Anchor shape and station schematic.",
+  });
+export const ELT_POS: Vec3 = [-0.8, -0.28, 0.13];
+export const ELT_REMOTE: Vec3 = [1.92, -0.44, -0.161];
+part(() => box(0.24, 0.012, 0.2), ["cabin", "caps"], {
+  pos: [ELT_POS[0], ELT_POS[1] - 0.053, ELT_POS[2]],
+  color: "#70828F",
+  name: "ELT mounting shelf",
+  pin: true,
+  pinIn: ["cabin"],
+  note: "Immediately aft of the cabin bulkhead, slightly right of centerline. Longitudinal mounting aligns the ELT's deceleration sensor; removable attach straps retain the transmitter (POH 7-92–94; AMM 25-60 p. 1). Geometry approximate.",
+});
+part(() => cyl(0.018, 0.018, "y"), ["cabin", "caps"], {
+  pos: [-0.8, -0.323, -0.005],
+  color: "#444B50",
+  name: "ELT warning buzzer",
+  pin: true,
+  pinIn: ["cabin"],
+  note: "Shelf-mounted buzzer beeps periodically when the ELT transmits, alongside the remote LED. Powered by the ELT's own batteries (POH 7-92; AMM 25-60 p. 1). Position and size approximate.",
+});
+
+for (const z of [-0.34, -0.04, 0.3]) {
+  part(
+    () =>
+      tubeGeo(
+        [
+          [-0.44, 0.14, z],
+          [0.075, 0.16, z + 0.045],
+          [0.46, -0.28, z],
+        ],
+        0.008,
+      ),
+    ["cabin"],
+    {
+      color: "#454A4D",
+      name: "Rear three-point shoulder restraint",
+      pin: z < -0.3,
+      note: "Rear shoulder belt from the baggage-compartment bulkhead inertia reel joins the lap belt; lap belts attach to floor fittings. Three-harness 2+1 option shown (POH7-29;AMM25-10p1). Webbing paths illustrative without occupants.",
+    },
+  );
+  part(
+    () =>
+      tubeGeo(
+        [
+          [0.33, -0.4, z - 0.12],
+          [0.46, -0.28, z],
+          [0.33, -0.4, z + 0.12],
+        ],
+        0.008,
+        0,
+      ),
+    ["cabin"],
+    {
+      color: "#454A4D",
+      name: "Rear lap restraint",
+      pin: z < -0.3,
+      note: "Rear lap belt anchored to cabin-floor fittings, part of the three-point restraint (POH7-29). Three-restraint 2+1 option shown. Paths and width approximate.",
+    },
+  );
+}
+part(
+  () =>
+    mergeGeos([
+      ...[-0.4, -0.2, 0, 0.2, 0.4].map((z) =>
+        tubeGeo(
+          [
+            [-0.43, 0.16, z],
+            [0.08, 0.12, z],
+          ],
+          0.003,
+          0,
+        ),
+      ),
+      ...[-0.43, -0.26, -0.09, 0.08].map((x) =>
+        tubeGeo(
+          [
+            [x, 0.14, -0.4],
+            [x, 0.14, 0.4],
+          ],
+          0.003,
+          0,
+        ),
+      ),
+    ]),
+  ["cabin"],
+  {
+    color: "#665B46",
+    name: "Retractable baggage cargo net",
+    pin: true,
+    note: "2+1 configuration retractable net extends from inertia reels at the rear bulkhead over baggage and secures to the seat backs with four latch assemblies. It does not function with the rear backs folded forward; then use conventional tie-down straps (POH7-27). Schematic net shape, reel station and mesh spacing.",
+  },
+);
+for (const z of [-0.4, -0.2, 0.2, 0.4])
+  part(() => box(0.025, 0.03, 0.025), ["cabin"], {
+    pos: [0.08, 0.15, z],
+    color: "#818C93",
+    name: "Cargo-net seat-back latch",
+    pin: z < -0.3,
+    note: "One of four cargo-net latch attachments at the rear seat backs (POH7-27). Shape and station schematic.",
+  });

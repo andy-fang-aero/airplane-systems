@@ -132,7 +132,7 @@ describe("SR20 installation clearances (POH §7)", () => {
         f.key,
       ).toBe(true);
     }
-    const oil = SR20_FLOWS.find((f) => f.key === "oil")!;
+    const oil = SR20_FLOWS.find((f) => f.key === "oilRelief")!;
     const filterBounds = partBounds(namedPart(SR20, "Oil filter (full-flow)"));
     expect(oil.pts.some((p) => filterBounds.containsPoint(Array.isArray(p) ? new THREE.Vector3(...p) : p))).toBe(true);
   });

@@ -53,9 +53,19 @@ export const SYS: SysDef[] = [
     blurb: "Fixed tricycle, differential braking",
   },
   {
+    id: "doors",
+    name: "Doors",
+    pg: "7-33",
+    cam: [
+      [4.4, 2.4, 5.2],
+      [1.4, 0.05, 0.35],
+    ],
+    blurb: "Hinges, gas struts, dual latches",
+  },
+  {
     id: "engine",
     name: "Engine",
-    pg: "7-31",
+    pg: "7-33",
     cam: [
       [5.6, 1.2, 2.9],
       [3.1, -0.2, 0],
@@ -65,7 +75,7 @@ export const SYS: SysDef[] = [
   {
     id: "propeller",
     name: "Propeller",
-    pg: "7-38",
+    pg: "7-40",
     cam: [
       [6.6, 1.0, -3.2],
       [3.5, -0.14, 0],
@@ -75,7 +85,7 @@ export const SYS: SysDef[] = [
   {
     id: "fuel",
     name: "Fuel",
-    pg: "7-39",
+    pg: "7-41",
     cam: [
       [2.6, 7, 8],
       [1.0, -0.5, 0],
@@ -85,7 +95,7 @@ export const SYS: SysDef[] = [
   {
     id: "electrical",
     name: "Electrical",
-    pg: "7-46",
+    pg: "7-49",
     cam: [
       [4.6, 3.0, 4.9],
       [1.6, -0.1, 0],
@@ -95,7 +105,7 @@ export const SYS: SysDef[] = [
   {
     id: "lighting",
     name: "Lighting",
-    pg: "7-56",
+    pg: "7-59",
     cam: [
       [-4.5, 3.4, 8.5],
       [0.6, 0, 0],
@@ -105,7 +115,7 @@ export const SYS: SysDef[] = [
   {
     id: "environment",
     name: "Environmental",
-    pg: "7-59",
+    pg: "7-62",
     cam: [
       [4.4, 1.8, 3.8],
       [2.0, -0.2, 0],
@@ -115,17 +125,17 @@ export const SYS: SysDef[] = [
   {
     id: "pitot",
     name: "Pitot-static & stall",
-    pg: "7-66",
+    pg: "7-69",
     cam: [
-      [3.8, 2.8, -8],
-      [0.4, -0.3, -0.6],
+      [6.2, 4.8, -13],
+      [0.2, -0.15, -1.2],
     ],
     blurb: "Heated pitot, static, stall horn",
   },
   {
     id: "avionics",
     name: "Avionics",
-    pg: "7-70",
+    pg: "7-73",
     cam: [
       [1.17, 0.15, 0.075],
       [2.28, -0.05, -0.095],
@@ -135,7 +145,7 @@ export const SYS: SysDef[] = [
   {
     id: "cabin",
     name: "Cabin & safety",
-    pg: "7-26",
+    pg: "7-27",
     cam: [
       [3.2, 4.6, 5.2],
       [0.5, 0, 0],
@@ -145,7 +155,7 @@ export const SYS: SysDef[] = [
   {
     id: "caps",
     name: "CAPS",
-    pg: "7-93",
+    pg: "7-97",
     cam: [
       [-5.2, 4.0, 7.2],
       [-0.4, 0.2, 0],

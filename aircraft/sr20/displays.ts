@@ -58,7 +58,7 @@ const ias = () => (live.capsT >= 0 ? 0 : IAS);
 function flight(s: Sim, E: Elec): FlightData {
   const dash: [string, string] = ["----", "----"];
   // ADAHRS 1 (ESS BUS 1) or 2 (MAIN BUS 2) feeds attitude, heading and air data; with both lost they show red X's
-  const adahrs = pw(s, E, "ess1", "ADAHRS 1") || pw(s, E, "main2", "ADAHRS 2");
+  const adahrs = E.ahrs1 || E.ahrs2;
   const xpdr = pw(s, E, "avx", "XPONDER");
   return {
     pitch: s.ctrl.pitch * 10,

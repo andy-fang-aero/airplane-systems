@@ -1,7 +1,8 @@
 /**
  * Identical-scene guard: every catalogue entry of every airplane — part, skin shell and control surface: its id,
  * placement, systems, optional-equipment state and built geometry — plus the SR22T flow paths, against a baseline taken
- * from main a1d3cdf0 before the load work. Speeding up geometry or mounting it progressively must not change the scene.
+ * from main a1d3cdf0 before the load work, with intentional model updates (SR20 G6 systems depth included).
+ * Speeding up geometry or mounting it progressively must not change the reviewed scene.
  * The SR22T is checked with TKS (FIKI) fitted and not fitted.
  *
  * Portable across runtimes: the last bit of Math.sin/cos/atan2 differs between V8 versions and CPU architectures, so
@@ -344,7 +345,7 @@ beforeAll(() => {
   baseline = readBaseline();
 }, 180_000);
 
-describe("catalogue and geometry are unchanged (baseline from main a1d3cdf0 plus PR47 seat placement)", () => {
+describe("catalogue and geometry match the reviewed model baseline", () => {
   for (const fiki of [true, false]) {
     it(`SR22T parts, shells and surfaces, FIKI ${fiki ? "fitted" : "not fitted"}`, () => {
       const set = `sr22t fiki=${fiki}`;

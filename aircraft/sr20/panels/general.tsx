@@ -26,9 +26,9 @@ export function Overview() {
   return (
     <>
       <p className="lead">
-        A study model of POH Section 7 for the SR20 with Perspective+ avionics (G6). Pick a system to fly the camera to
-        it, hover parts for their notes, and operate switches, levers and failures in the panel. Systems are linked:
-        pull an alternator and watch buses, displays and the CAS window respond.
+        A study model of the Lycoming-powered SR20 G6 with Perspective+ avionics. Pick a system to fly the camera to it,
+        hover parts for their notes, and operate switches, levers and failures in the panel. Systems are linked: pull an
+        alternator and watch buses, displays and the CAS window respond.
       </p>
       <H3>Key figures</H3>
       <Facts
@@ -56,13 +56,75 @@ export function Overview() {
           </button>
         ))}
       </div>
-      <p className="disc">
-        Unofficial study aid built from POH P/N 11934-005 (Reissue A), Section 7, with a few Section 2 limits, plus
-        photos and notes from the Costanzo Air Flight School “Cirrus SR20 Systems” deck (where the two differ, the POH
-        wins and the page says so). Geometry is approximate and not to scale in detail. CAS messages use the POH Section
-        3 and 3A names, for the conditions the model simulates; their triggers are simplified. Always use the POH/AFM
-        and supplements for your serial number.
+      <H3>Configuration and sources</H3>
+      <p>
+        This model follows the early G6 configuration (serials 2220 and 2339–2900), with the metal three-blade
+        propeller, MD302 standby, 2+1 rear seat and optional air conditioning. The Avionics panel lets you fit or remove
+        the optional second ADAHRS. Continental-powered SR20s have different engine, fuel and electrical systems.
       </p>
+      <ul className="notes">
+        <li>
+          <a href="https://www.palomaraviation.com/pdf/sr20-g6-poh.pdf" target="_blank" rel="noreferrer">
+            Cirrus SR20 POH 11934-005
+          </a>{" "}
+          — Reissue A with Revision A1 pages; Sections 2, 4, 7 and 8.
+        </li>
+        <li>
+          <a href="https://www.scribd.com/document/600081303/AMM-RA1" target="_blank" rel="noreferrer">
+            SR20 maintenance manual 12137-002
+          </a>{" "}
+          — Reissue A, Revision A1; component identities and system connections. Detailed positions are approximate.
+        </li>
+        <li>
+          <a href="https://static.garmin.com/pumac/190-02183-01_A.pdf" target="_blank" rel="noreferrer">
+            Garmin Perspective+ Pilot’s Guide
+          </a>{" "}
+          — avionics interfaces and display behavior.
+        </li>
+        <li>
+          <a
+            href="https://forum.cirruspilots.org/t/sr20-g3-io-360-es-versus-sr20-g6-io-390-c3b6-normal-startup-question/239188"
+            target="_blank"
+            rel="noreferrer"
+          >
+            COPA: G3 versus G6 starting systems
+          </a>{" "}
+          — member experience illustrating why engine-specific procedures matter; membership required.
+        </li>
+      </ul>
+      <p className="disc">
+        Unofficial study aid. The POH controls operating claims and limits; manual disagreements are called out in the
+        component notes. COPA discussions provide ownership context, not operating limits. Geometry and routing are
+        approximate and not to scale in detail. CAS messages use the POH Section 3 and 3A names, for the conditions the
+        model simulates; their triggers are simplified. Always use the POH/AFM and supplements for your serial number.
+      </p>
+    </>
+  );
+}
+
+export function Doors() {
+  return (
+    <>
+      <p className="lead">
+        Two forward-hinged cabin doors use upper and lower aft latching pins. Gas struts assist opening and hold the
+        doors open. The latch, striker, hinge and strut details show how the door transfers loads to the composite frame
+        (POH 7-33; AMM 52-10).
+      </p>
+      <Facts
+        rows={[
+          ["Cabin latch", "Upper and lower aft pins engage frame receptacles"],
+          ["Locks", "Cabin and baggage door share a key; fuel caps use separate keys"],
+          ["Key fob", "Cabin locks only for this early G6 configuration; disabled with BAT 1 ON"],
+          ["BAT 1 ON", "Cabin doors automatically unlock"],
+          ["Windows", "Acrylic; use approved cleaning methods"],
+        ]}
+      />
+      <H3>Door hardware — tap to locate</H3>
+      <PartsList parts={CAT.pinned("doors")} />
+      <Small>
+        Door geometry is shown closed; the light-panel door switch represents a cabin door opening for convenience
+        lighting. Later serial 8500-and-up baggage-lock behavior is outside this configuration.
+      </Small>
     </>
   );
 }
@@ -337,6 +399,57 @@ export function Avionics() {
           ["Audio · XPDR", "AVIONICS bus"],
         ]}
       />
+      <H3>ADAHRS redundancy</H3>
+      <Ctl>
+        <Check
+          id="dual-adahrs"
+          label="Optional second ADAHRS fitted"
+          checked={s.avx.dualAdahrs}
+          onChange={(v) =>
+            up((d) => {
+              d.avx.dualAdahrs = v;
+            })
+          }
+        />
+        <Check
+          id="adahrs1-fail"
+          label="ADAHRS 1 fails"
+          checked={s.avx.ahrs1Fail}
+          onChange={(v) =>
+            up((d) => {
+              d.avx.ahrs1Fail = v;
+            })
+          }
+        />
+        {s.avx.dualAdahrs && (
+          <Check
+            id="adahrs2-fail"
+            label="ADAHRS 2 fails"
+            checked={s.avx.ahrs2Fail}
+            onChange={(v) =>
+              up((d) => {
+                d.avx.ahrs2Fail = v;
+              })
+            }
+          />
+        )}
+        <Readouts
+          items={[
+            ["ADAHRS 1 · ESS 1", E.ahrs1 ? "AVAILABLE" : ["FAILED / NO PWR", "bad"]],
+            [
+              "ADAHRS 2 · MAIN 2",
+              !s.avx.dualAdahrs ? "NOT FITTED" : E.ahrs2 ? "AVAILABLE" : ["FAILED / NO PWR", "bad"],
+            ],
+            ["Primary attitude / air data", E.ahrs1 || E.ahrs2 ? "AVAILABLE" : ["RED X", "bad"]],
+            ["MD302 independent standby", E.stby ? "ON" : ["NO PWR", "bad"]],
+          ]}
+        />
+      </Ctl>
+      <Small>
+        Each GSU 75 receives pitot/static pressure, OAT, magnetometer and GPS inputs. Lose both powered units to see the
+        primary attitude, heading and air-data red Xs while the independent MD302 remains available. Automatic selection
+        is simplified; alignment, sensor comparison and pilot source selection are not simulated (POH 7-76).
+      </Small>
       <H3>CAS colors</H3>
       <Facts
         rows={[
@@ -352,8 +465,23 @@ export function Avionics() {
           "On a detected display failure the remaining screen shows PFD data plus engine indication with no pilot action. The red DISPLAY BACKUP button between the displays puts both in that mode; press it again to exit.",
           "Baro-VNAV provides LNAV/VNAV guidance without SBAS (magenta pentagon). No SBAS→baro downgrade inside 60 s of the FAF.",
           "Three fans cool the stack: AVIONICS FAN 1 (NON ESS) and FAN 2 (MAIN 2).",
+          "The GEA engine-airframe unit receives engine probes, fuel flow and quantity, electrical measurements and discrete status inputs. Its RS-485 links to both integrated avionics units are separate from the display Ethernet links (Garmin Pilot’s Guide pp. 1–2).",
         ]}
       />
+      <H3>Factory G6 versus retrofit</H3>
+      <p>
+        Installing Perspective+ in an older SR20 does not change its engine or sensors. Garmin reports that factory G6
+        aircraft have a manifold-air-temperature sensor needed for ROP/LOP fuel-flow guidance; earlier aircraft may lack
+        it. This model shows the G6 sensor, while its fuel-flow and percent-power readings remain illustrative.{" "}
+        <a
+          href="https://forum.cirruspilots.org/t/perspective-to-perspective-upgrade-for-cirrus-sr20-sr22-coming-soon/288014/358"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Garmin’s COPA explanation
+        </a>{" "}
+        (membership required).
+      </p>
       <PartsList parts={CAT.pinned("avionics")} />
     </>
   );
