@@ -10,6 +10,8 @@ import "@/aircraft";
 import { GROUND_Y, inFus } from "@/aircraft/sr22t/geometry";
 import { FLAP_DEG, flapPositionLit, initialSim, live, type Sim } from "@/aircraft/sr22t/model";
 import { CAT } from "@/aircraft/sr22t/parts";
+import { allGroups } from "@/aircraft/sr22t/engine-groups";
+import { useEngineGroups } from "@/aircraft/sr22t/engine-group-store";
 import { useSR22T } from "@/aircraft/sr22t/store";
 import { simTick } from "@/aircraft/sr22t/tick";
 import { SYS } from "@/aircraft/sr22t/systems";
@@ -258,6 +260,30 @@ describe("the cabin station drives the airplane (POH 4-5, 4-6)", () => {
   });
   afterEach(() => closeWalk());
 
+  it("reveals oil inspection targets with study groups hidden and reapplies filters on exit", () => {
+    const saved = useEngineGroups.getState().shown;
+    const hidden = allGroups(false);
+    try {
+      useEngineGroups.setState({ shown: hidden });
+      useView.setState({ sys: "engine" });
+      const targets = () =>
+        CAT.partsFor().filter((p) => p.name === "Oil filler cap / dipstick" || p.name === "Oil filler access door");
+      expect(targets()).toHaveLength(0);
+      openWalk(10);
+      beginWalk();
+      expect(walkNow().steps[useWalk.getState().at].item.id).toBe("10a");
+      expect(targets()).toHaveLength(2);
+      expect(useEngineGroups.getState().shown).toBe(hidden);
+      closeWalk();
+      expect(useView.getState().sys).toBe("engine");
+      expect(targets()).toHaveLength(0);
+      expect(useEngineGroups.getState().shown).toBe(hidden);
+    } finally {
+      closeWalk();
+      useEngineGroups.setState({ shown: saved });
+    }
+  });
+
   it("walks the switches through the cabin items, forward and back", () => {
     openWalk();
     beginWalk();
@@ -410,6 +436,24 @@ describe("the cabin station drives the airplane (POH 4-5, 4-6)", () => {
 });
 
 describe("optional equipment", () => {
+  it("replaces the pneumatic inlet instructions with explicit FIKI supplement cues", () => {
+    const get = (fiki: boolean) =>
+      walkSteps(patched(initialSim, { equip: { fiki } }))
+        .filter(({ item }) => item.id === "1o" || item.id === "1p")
+        .map(({ item }) => item);
+    for (const item of get(true)) {
+      expect(item.configurationCue).toBe(true);
+      expect(item.parts).toEqual(["Stall warning lift transducer"]);
+      expect(item.standard).toBe("SEE APPLICABLE FIKI SUPPLEMENT");
+      expect(item.note).not.toContain("suction");
+      expect(item.ref).toContain("Configuration: AMM");
+    }
+    const basic = get(false);
+    expect(basic.every((item) => !item.configurationCue)).toBe(true);
+    expect(basic[0].parts).toEqual(["Stall warning inlet"]);
+    expect(basic[1].note).toContain("applying suction");
+    expect(get(true).map((item) => item.id)).toEqual(basic.map((item) => item.id));
+  });
   it("shows the oxygen items 1i and 1q only when oxygen is fitted (POH 4-5, 'if available')", () => {
     const ids = (s: Sim) => walkSteps(s).map((x) => x.item.id);
     expect(ids(initialSim)).toEqual(expect.arrayContaining(["1i", "1q"]));

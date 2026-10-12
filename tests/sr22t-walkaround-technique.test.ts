@@ -91,6 +91,15 @@ describe("technique items are counted apart from the POH items", () => {
 });
 
 describe("the card shows the technique badge", () => {
+  it("labels FIKI replacement cards as configuration cues, without a basic POH test instruction", () => {
+    for (const id of ["1o", "1p"]) {
+      const html = card(step(id));
+      expect(html).toContain("Configuration cue — see supplement");
+      expect(html).toContain("SEE APPLICABLE FIKI SUPPLEMENT");
+      expect(html).not.toContain("applying suction");
+      expect(html).not.toContain("POH 4-5");
+    }
+  });
   it("badges the technique items and no POH item", () => {
     for (const s of steps) {
       const html = card(s);

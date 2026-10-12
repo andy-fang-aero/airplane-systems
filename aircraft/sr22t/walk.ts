@@ -21,7 +21,12 @@ export interface Step {
 /** Every item shown for the equipment fitted in `s`, in POH order. */
 export const walkSteps = (s: Sim): Step[] =>
   WALK.flatMap((station) =>
-    station.items.filter((item) => !item.fitted || item.fitted(s)).map((item) => ({ station, item })),
+    station.items
+      .filter((item) => !item.fitted || item.fitted(s))
+      .map((item) => ({
+        station,
+        item: s.equip.fiki && item.fiki ? { ...item, ...item.fiki, configurationCue: true } : item,
+      })),
   );
 
 /** Index of the first step of station `n` (1..13), or −1. */

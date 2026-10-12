@@ -318,6 +318,7 @@ export function Item({ step, at, steps }: { step: Step; at: number; steps: Step[
           {mark && <span className={`walk-mark ${mark}`}>{mark === "ok" ? "✓ Checked" : "Skipped"}</span>}
         </div>
         {item.technique && <span className="walk-tech">{TECHNIQUE_BADGE}</span>}
+        {item.configurationCue && <span className="walk-tech">Configuration cue — see supplement</span>}
         <div className="walk-std">{item.standard}</div>
         {item.look && <p className="walk-look">{item.look}</p>}
         {item.steps && (

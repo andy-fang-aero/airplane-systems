@@ -85,6 +85,7 @@ try {
 
     await page.goto(`${base}/sr22t/overview`);
     await page.waitForSelector("canvas");
+    await page.waitForFunction(() => !document.querySelector("[data-building]"), null, { timeout: 120_000 });
     await page.waitForFunction(() => document.fonts.status === "loaded");
     const preflight = page.locator(".toolbar").getByRole("button", { name: "Preflight", exact: true });
     assert.equal(await preflight.getAttribute("aria-pressed"), "false");
@@ -124,6 +125,14 @@ try {
     if (phone) await page.getByRole("button", { name: "Previous item" }).click();
     else await page.keyboard.press("ArrowLeft");
     await waitProgress(page, "Station 1 of 13 · item 4 of 26");
+
+    // The default FIKI model gets supplement cues, never the basic pneumatic-inlet test.
+    for (let i = 0; i < 12; i++) await page.getByRole("button", { name: "Next item" }).click();
+    assert.equal(await itemId(page), "1p");
+    assert.equal(await page.locator(".walk-std").innerText(), "SEE APPLICABLE FIKI SUPPLEMENT");
+    assert.ok((await page.locator(".walk-card").innerText()).includes("Configuration cue — see supplement"));
+    assert.ok(!(await page.locator(".walk-card").innerText()).includes("applying suction"));
+    await shot("fiki-stall-cue");
 
     // jump via the mini-map: past the cabin the flaps are down (1m), batteries off (1u)
     await page.getByRole("button", { name: /^Station 5: Right Wing Trailing Edge/ }).click();

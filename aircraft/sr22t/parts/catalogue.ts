@@ -6,6 +6,7 @@
 import * as THREE from "three";
 import { Catalogue, chanOfKey, type PartAnim } from "@/lib/catalogue";
 import { mats } from "@/lib/materials";
+import { useView } from "@/lib/view";
 import { clamp, type Vec3 } from "@/lib/math";
 import { magFires, sysNow } from "@/lib/anims";
 import { AB, paintSkin, wingP } from "../geometry";
@@ -44,7 +45,8 @@ export const CAT = new Catalogue(
     },
   },
   paintSkin,
-  (spec) => engineHidden(spec, sysNow(), useEngineGroups.getState().shown),
+  // Walkaround targets must stay mounted even when their engine study group is hidden.
+  (spec) => !useView.getState().walking && engineHidden(spec, sysNow(), useEngineGroups.getState().shown),
   ENGINE_GROUPS,
 );
 export const { part, surfacePivot, shell, loftSurface: surface, onSurface: onSurf } = CAT;

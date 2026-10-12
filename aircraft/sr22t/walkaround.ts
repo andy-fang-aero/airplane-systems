@@ -54,6 +54,9 @@ export interface WalkItem {
   see?: string;
   /** Emphasize the parts beyond the spot colour: a pulsing halo on every instance. */
   emphasis?: boolean;
+  /** A configuration cue replacing a basic-POH item when FIKI is fitted; it does not supply a supplement procedure. */
+  fiki?: Pick<WalkItem, "text" | "standard" | "parts" | "why" | "ref" | "note">;
+  configurationCue?: boolean;
   /** Optional equipment: the item is left out while this is false. */
   fitted?: (s: Sim) => boolean;
   /** What stepping onto this item sets in the model (cabin station). */
@@ -115,6 +118,16 @@ export const isPoh = (item: WalkItem) => !item.technique;
 const BRAKE_INDICATOR_WHY =
   "Brake temperature indicator: not discoloured (white is normal; it turns black once the brake reaches 450 °F, AMM 32-42). It sits on the inboard side of the caliper, so check it from under the opposite wing.";
 const BRAKE_INDICATOR_REF = "AMM 32-42, PDF 1450, 1461; Fig 32-42-1, PDF 1462";
+
+/** AMM 13773-002 Rev 7 27-31 ¶A/¶B (PDF1032), already cited by pitot.ts and ice.ts, distinguishes these fitted systems.
+ * The applicable FIKI preflight procedure is not verified here, so these cues direct the reader to their supplement. */
+const FIKI_STALL_CUE = {
+  standard: "SEE APPLICABLE FIKI SUPPLEMENT",
+  parts: ["Stall warning lift transducer"],
+  note: "FIKI preflight inspection and test steps are not included in this walk-around. Use the approved supplement for your airplane.",
+  why: "This FIKI model has a lift transducer instead of the pneumatic inlet shown in the basic POH checklist.",
+  ref: "Configuration: AMM 27-31 ¶A/¶B, PDF 1032",
+};
 
 const avionics = (on: boolean) => (d: Sim) => {
   d.elec.avionics = on;
@@ -299,7 +312,8 @@ export const WALK: WalkStation[] = [
         id: "1o",
         text: "Stall Warning System Inlet",
         standard: "UNOBSTRUCTED",
-        parts: ["Stall warning inlet", "Stall warning lift transducer"],
+        parts: ["Stall warning inlet"],
+        fiki: { ...FIKI_STALL_CUE, text: "Stall Warning System — FIKI" },
         side: "R",
         system: "pitot",
         why: "The inlet in the right wing leading edge feeds the stall warning pressure switch; blocked, it gives no warning (POH 7-68).",
@@ -310,7 +324,8 @@ export const WALK: WalkStation[] = [
         text: "Stall Warning",
         standard: "TEST",
         note: "Test stall warning system by applying suction to the stall warning system inlet and noting the warning horn sounds.",
-        parts: ["Stall warning inlet", "Stall warning lift transducer"],
+        parts: ["Stall warning inlet"],
+        fiki: { ...FIKI_STALL_CUE, text: "Stall Warning — FIKI" },
         side: "R",
         system: "pitot",
         why: "Proves the whole chain from the inlet to the horn.",
