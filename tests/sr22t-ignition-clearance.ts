@@ -17,10 +17,10 @@ import {
 import { curveOf } from "@/lib/geometry";
 import { FLOWS } from "@/aircraft/sr22t/flows";
 import type { PartSpec } from "@/lib/catalogue";
-import { CAT, CYLS } from "@/aircraft/sr22t/parts";
+import { CAT } from "@/aircraft/sr22t/parts";
 import { HARNESS_CAP, IGNITION_LEADS } from "@/aircraft/sr22t/parts/engine-ignition";
 import { IGNITION_SWITCH } from "@/aircraft/sr22t/parts/catalogue";
-import { cylOrigin } from "@/aircraft/sr22t/parts/engine";
+import { parentMatrix } from "./sr22t-engine-gap";
 import { HOT_VALVE } from "@/aircraft/sr22t/parts/environment";
 import { MeshBVH } from "three-mesh-bvh";
 
@@ -36,8 +36,7 @@ const solid = (p: PartSpec) => {
       new Vector3(...(p.scale ?? [1, 1, 1])),
     ),
   );
-  const c = CYLS.find((c) => p.parent === `cyl:${c.n}`);
-  if (c) g.translate(...cylOrigin(c));
+  g.applyMatrix4(parentMatrix(p.parent));
   g.computeBoundingBox();
   let bvh: MeshBVH | undefined;
   return {

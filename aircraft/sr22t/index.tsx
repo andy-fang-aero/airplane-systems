@@ -3,7 +3,8 @@ import { useTicker } from "@/components/ui/controls";
 import type { AircraftDef } from "../types";
 import { GROUND_Y, inFus } from "./geometry";
 import { casMessages, live } from "./model";
-import { Model } from "./Airplane";
+import { SceneModel } from "./Airplane";
+import { fuselageInWorker } from "./fuselage-geo";
 import { Parachute, capsPhase } from "./Parachute";
 import { CAT } from "./parts";
 import { Caps } from "./panels/caps";
@@ -51,7 +52,9 @@ export const SR22T: AircraftDef = {
   systems: SYS,
   groundY: GROUND_Y,
   pivotX: 1,
-  Model,
+  Model: SceneModel,
+  progressive: true,
+  prepare: () => void fuselageInWorker(),
   Overlay: Parachute,
   panels: {
     overview: Overview,

@@ -65,8 +65,8 @@ describe("A/C air path (AMM 21-50 PDF p. 496)", () => {
       last = pts.at(-1)!;
     expect(first.distanceTo(v(AC.evaporator))).toBeLessThan(1e-9);
     expect(boxOf(one("Distribution manifold")).distanceToPoint(last)).toBeLessThan(0.02);
-    // ducted forward: it ends ahead of where it starts, at the firewall's aft side
-    expect(last.x).toBeGreaterThan(first.x + 1);
+    // Ducted forward to the firewall's aft side; the evaporator follows the corrected front-seat station.
+    expect(last.x).toBeGreaterThan(first.x);
     expect(last.x).toBeLessThan(FW);
     expect(isCabinAir("acEvapDuct")).toBe(true);
   });

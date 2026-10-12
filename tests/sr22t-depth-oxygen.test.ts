@@ -156,7 +156,7 @@ describe("SR22T built-in oxygen hardware (AMM 35-00; AFMS Fig 1)", () => {
     }
   });
 
-  it("the overhead console carries the dome light, forward of the CAPS cover and speaker (AFMS Fig 1; POH 7-59)", () => {
+  it("the overhead console carries the dome light, aft of the CAPS cover and forward of the speaker (AFMS Fig 1; POH 7-59)", () => {
     const unit = worldBox(one("Overhead distribution manifold")),
       dome = worldBox(one("Dome light"));
     expect(OXY.manifold[0]).toBeCloseTo(LIGHTS.dome[0], 10);
@@ -165,13 +165,9 @@ describe("SR22T built-in oxygen hardware (AMM 35-00; AFMS Fig 1)", () => {
     expect(dome.max.y).toBeCloseTo(unit.min.y, 6);
     expect(dome.min.x).toBeGreaterThanOrEqual(unit.min.x);
     expect(dome.max.x).toBeLessThanOrEqual(unit.max.x);
-    for (const name of [
-      "CAPS activation handle cover",
-      "CAPS handle receptacle",
-      "CAPS cover black forward tab",
-      "Cabin speaker",
-    ])
-      expect(unit.min.x, name).toBeGreaterThan(worldBox(one(name)).max.x);
+    for (const name of ["CAPS activation handle cover", "CAPS handle receptacle", "CAPS cover black forward tab"])
+      expect(unit.max.x, name).toBeLessThan(worldBox(one(name)).min.x);
+    expect(unit.min.x).toBeGreaterThan(worldBox(one("Cabin speaker")).max.x);
     expect(one("Overhead distribution manifold").note).toContain("stations approximate (AFMS Fig 1 undimensioned)");
   });
 

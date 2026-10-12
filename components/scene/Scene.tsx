@@ -1,7 +1,7 @@
 "use client";
 import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { sysOf, useAircraft } from "@/aircraft";
@@ -10,6 +10,7 @@ import { outlineMat, shellUniforms } from "@/lib/materials";
 import { V, clamp, ease } from "@/lib/math";
 import { view } from "@/lib/registry";
 import { palette } from "@/lib/systems";
+import { nextFrame, setBuild, useBuild } from "@/lib/build";
 import { advanceSimulation } from "@/lib/simulationClock";
 import { useView } from "@/lib/view";
 import type { PickInfo } from "./Part";
@@ -144,6 +145,20 @@ function usePicker() {
   };
 }
 
+/**
+ * The loader's end for an airplane built in one go: "airframe" before its deferred model mounts, "ready" with the first frame
+ * whose model group has content (the model may mount a frame or more after the scene, e.g. after starting its shader
+ * compile).
+ */
+function BuildMarks({ modelRef }: { modelRef: React.RefObject<THREE.Group | null> }) {
+  // in the commit, so no frame can come between it and the mount
+  useLayoutEffect(() => setBuild("airframe"), []);
+  useFrame(() => {
+    if (useBuild.getState().stage !== "ready" && modelRef.current?.children.length) setBuild("ready");
+  });
+  return null;
+}
+
 /** One airplane: the root group (rotation pivot) around the picking group with the model inside. */
 function AircraftScene({ def, gridRef }: { def: AircraftDef; gridRef: React.RefObject<THREE.GridHelper | null> }) {
   const rootRef = useRef<THREE.Group>(null);
@@ -151,6 +166,19 @@ function AircraftScene({ def, gridRef }: { def: AircraftDef; gridRef: React.RefO
   const onMove = usePicker();
   const setHover = useView((x) => x.setHover);
   const { Model, Overlay } = def;
+  // A one-shot model can block in render while it builds geometry. Commit the loader and give the browser a paint
+  // before mounting it. AircraftScene is keyed by id, so an obsolete deferred mount is cancelled on a switch.
+  const [mountModel, setMountModel] = useState(!!def.progressive);
+  useEffect(() => {
+    if (def.progressive) return;
+    let current = true;
+    void nextFrame().then(() => {
+      if (current) setMountModel(true);
+    });
+    return () => {
+      current = false;
+    };
+  }, [def]);
   const pins = useMemo(() => (def.labels ? pinPolicy(def.labels.cat, def.labels.inside) : {}), [def]);
   return (
     <>
@@ -168,10 +196,11 @@ function AircraftScene({ def, gridRef }: { def: AircraftDef; gridRef: React.RefO
           }}
           onPointerOut={() => setHover(null)}
         >
-          <Model />
+          {mountModel && <Model />}
         </group>
       </group>
-      {Overlay && <Overlay rootRef={rootRef} modelRef={modelRef} gridRef={gridRef} />}
+      {mountModel && Overlay && <Overlay rootRef={rootRef} modelRef={modelRef} gridRef={gridRef} />}
+      {!def.progressive && <BuildMarks modelRef={modelRef} />}
       <PinDeclutter {...pins} />
     </>
   );

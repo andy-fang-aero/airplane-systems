@@ -32,7 +32,7 @@ export const shape = (g: BufferGeometry, name: string, extra: Partial<Shape> = {
  * neutral, doors closed, propeller unrotated with blades at the initial display pitch. An unknown group throws, so a
  * new group cannot be audited at its local origin.
  */
-const parentMatrix = (parent?: string): Matrix4 => {
+export const parentMatrix = (parent?: string): Matrix4 => {
   const m = new Matrix4();
   if (!parent || parent === "rig:pedL" || parent === "rig:pedR") return m;
   const [group, key] = [parent.slice(0, parent.indexOf(":")), parent.slice(parent.indexOf(":") + 1)];
