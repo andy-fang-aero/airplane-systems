@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { mergeGeos } from "@/lib/geometry";
 import type { Vec3 } from "@/lib/math";
-import { botY, box, cyl, tubeGeo } from "../geometry";
+import { FUSE, box, cyl, tubeGeo } from "../geometry";
 import { cabinOperation } from "../environment";
 import { useSR20 } from "../store";
 import { part } from "./catalogue";
@@ -25,17 +25,17 @@ export const AC: Record<
   | "service",
   Vec3
 > = {
-  compressor: [3.64, -0.02, -0.24],
+  compressor: [3.5, -0.06, -0.28],
   condenser: [-0.18, -0.52, 0],
   receiver: [-0.18, -0.52, 0.15],
   expansion: [BLOWER[0] - 0.12, BLOWER[1] - 0.02, 0.38],
   evaporator: [BLOWER[0], BLOWER[1] - 0.015, 0.35],
   recircValve: [BLOWER[0], BLOWER[1] + 0.025, 0.35],
   recircInlet: [BLOWER[0] - 0.17, BLOWER[1] + 0.025, 0.35],
-  condenserFan: [-0.38, -0.52, 0],
-  intake: [-0.14, botY(-0.14), 0.1],
-  exhaust: [-0.43, botY(-0.43), -0.06],
-  drain: [BLOWER[0], botY(BLOWER[0]), 0.35],
+  condenserFan: [-0.38, -0.47, 0],
+  intake: [-0.14, FUSE.lowerSkinY(-0.14, 0.1), 0.1],
+  exhaust: [-0.43, FUSE.lowerSkinY(-0.43, -0.06), -0.06],
+  drain: [BLOWER[0], FUSE.lowerSkinY(BLOWER[0], 0.35), 0.35],
   service: [2.45, -0.53, 0.42],
 };
 const cooling = () => {
@@ -54,7 +54,8 @@ part(() => cyl(0.05, 0.12, "x"), ["environment", "engine"], {
   pinIn: ["environment"],
   note: "Optional engine-driven R134A compressor; compresses refrigerant vapor and sends it to the condenser. The SR20 installation has a belt at the flywheel/ring gear and a mounting bracket/link shared with the alternator installation (AMM 12137-002 21-50 pp. 4–8, Fig 21-50-1 sheets 2–3). Electric clutch requires the 5 A A/C COMPR breaker on A/C BUS 2 and a running engine (POH 7-62). Component shape, pulley proportions and forward-engine station schematic; this is not the SR22T aft accessory-pad drive.",
 });
-export const AC_CLUTCH: Vec3 = [AC.compressor[0] - 0.071, AC.compressor[1], AC.compressor[2]];
+/** Both belt pulleys lie in the flywheel plane; body/offsets remain schematic. */
+export const AC_CLUTCH: Vec3 = [3.57, AC.compressor[1], AC.compressor[2]];
 part(() => cyl(0.063, 0.018, "x", 28), ["environment", "engine"], {
   pos: AC_CLUTCH,
   color: "#596B76",
@@ -67,15 +68,25 @@ part(() => cyl(0.063, 0.018, "x", 28), ["environment", "engine"], {
 // Closed visual belt loop, positioned near the flywheel rather than the Continental rear accessory drive.
 part(
   () => {
-    const x = 3.57;
-    const loop: Vec3[] = [
-      [x, -0.14, 0.14],
-      [x, 0.0, 0],
-      [x, 0.04, -0.24],
-      [x, -0.08, -0.3],
-      [x, -0.26, -0.06],
-      [x, -0.14, 0.14],
+    const x = AC_CLUTCH[0],
+      ring = [-0.14, 0],
+      clutch = [AC_CLUTCH[1], AC_CLUTCH[2]];
+    // External tangent belt spans around the two illustrative pulley radii, not a loose freeform loop.
+    const radiusRing = 0.144,
+      radiusClutch = 0.067;
+    const separation = Math.hypot(clutch[0] - ring[0], clutch[1] - ring[1]);
+    const direction = Math.atan2(clutch[1] - ring[1], clutch[0] - ring[0]);
+    const tangent = Math.acos((radiusRing - radiusClutch) / separation);
+    const arc = (center: number[], radius: number, start: number, end: number): Vec3[] =>
+      Array.from({ length: 32 }, (_, i) => {
+        const angle = start + ((end - start) * i) / 32;
+        return [x, center[0] + radius * Math.cos(angle), center[1] + radius * Math.sin(angle)];
+      });
+    const loop = [
+      ...arc(ring, radiusRing, direction + tangent, direction + 2 * Math.PI - tangent),
+      ...arc(clutch, radiusClutch, direction - tangent, direction + tangent),
     ];
+    loop.push(loop[0]);
     return tubeGeo(loop, 0.004, 0.15);
   },
   ["environment", "engine"],

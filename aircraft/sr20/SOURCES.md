@@ -91,6 +91,8 @@ These member discussions were **fetched and read**, including later clarificatio
 ## Approximation boundaries
 
 - Component identities and connections are sourced; dimensions, small-part stations, tube diameters and bend paths are schematic unless a component note identifies a verified value.
+- Internal meshes and complete curved tube walls are checked against the modeled fuselage, wing and tail skins. Only short transitions at named exterior ports are allowed to penetrate them. This verifies the drawing's physical consistency, not measured installation clearances.
+- Preflight tip, leading-edge, wing/fuselage junction and cowling highlights use narrow skin overlays. SR20 stall strips follow AMM 57-20 p. 1 (inboard leading edges of both wing cuffs); their station, length and section remain schematic. The highlight overlay boundaries are display choices. Pitot-heat verification points to the probe while retaining the cockpit switch highlight.
 - Wire particles explain signal/power availability; pitot/static particles explain pressure paths. Neither is a circuit-current calculation or fluid-dynamics simulation.
 - Engine starting/starvation delays, cooling/oil-flow rates, brake motion, CAPS timing and electrical currents/endurance remain illustrative. Battery endurance uses the pre-existing training-deck rule of thumb, not a dispatch guarantee.
 - The primary display keeps the existing fixed cruise picture. ADAHRS power/failure, screen reversion and breaker behavior are interactive; alignment, comparison logic, AFCS flight dynamics, fuel totalizer reconciliation and thermodynamic engine monitoring are not fully simulated.

@@ -3,8 +3,9 @@
  * Every lettered basic-POH inspection in source order. This Lycoming/Perspective+ configuration has no oxygen or FIKI
  * checklist. Positions are approximate display framing; inspection actions and numerical standards come from the POH.
  */
-import type { Vec3 } from "@/lib/math";
+import { toVec3, type Vec3 } from "@/lib/math";
 import type { SysId } from "@/lib/systems";
+import { onSkin, wingP, WTIP } from "./geometry";
 import type { Sim } from "./model";
 
 export interface CameraPose {
@@ -16,6 +17,8 @@ export interface WalkItem {
   text: string;
   standard: string;
   parts: string[];
+  /** Part name or point anchoring the label and camera instead of averaging the highlighted parts. */
+  target?: string | Vec3;
   system: SysId;
   ref: string;
   why?: string;
@@ -50,14 +53,12 @@ export const THROUGHOUT = [
 /** Physical inspection details omitted from the scene are named explicitly, rather than substituted with other equipment. */
 export const NOT_MODELLED: Record<string, string> = {
   "Required documents": "Paperwork is outside the 3D model.",
-  "Wing/fuselage fairing": "Blended into the wing and fuselage skins.",
   "Parachute cover": "Cover/seal condition is not simulated.",
   "Tail tiedown": "Rings, ropes and removal are not simulated.",
   "Stabilizer inspection-hole tape": "Tape attachment is a physical inspection.",
   "Control attachment hardware": "Individual bolts, safety wire and cotter pins are not all modelled.",
   "Aileron gap seal": "Seal condition is not simulated.",
   "Flap rub strips (if installed)": "Installation and wear are not simulated.",
-  "Stall strips": "Inspect their attachment and condition on the actual leading edge.",
   "Chocks and tiedown ropes": "Removal is a physical action.",
   "Oil service door": "Access-door security is a physical check.",
   "Tow bar": "Removal and stowage are physical actions.",
@@ -90,7 +91,6 @@ const heat = (on: boolean) => (s: Sim) => {
 const lightL = "Left wingtip: nav (red) + strobe",
   lightR = "Right wingtip: nav (green) + strobe";
 const boltNote = "Verify the bolt under the inboard aileron edge is secured with safety wire (POH 4-7 and 4-9).";
-const wing = (side: "Left" | "Right") => `${side} wing`;
 
 export const WALK: WalkStation[] = [
   {
@@ -151,6 +151,7 @@ export const WALK: WalkStation[] = [
         note: "Apply suction to the inlet and verify the warning horn sounds. This study scene does not perform the physical test.",
       }),
       item("1p", "Pitot Heat", "ON · VERIFY PROBE HOT", ["PITOT HEAT switch", "Heated pitot tube"], "pitot", {
+        target: "Heated pitot tube",
         sim: heat(true),
         note: "The probe may be hot. In cold weather, verify warming within 30 seconds (POH 4-4).",
       }),
@@ -193,7 +194,9 @@ export const WALK: WalkStation[] = [
       item("2d", "COM 2 Antenna (underside)", "CONDITION AND ATTACHMENT", ["COM 2 antenna"], "avionics", {
         crouch: true,
       }),
-      item("2e", "Wing/Fuselage Fairing", "CHECK", ["Wing/fuselage fairing", wing("Left")], "airframe"),
+      item("2e", "Wing/Fuselage Fairing", "CHECK", ["Wing/fuselage fairing"], "airframe", {
+        target: toVec3(wingP(-0.66, 0.4, 1)), // approximate: visible upper skin at the blended wing root
+      }),
       item("2f", "Baggage Door", "CLOSED AND SECURE", ["Baggage door"], "cabin"),
       item("2g", "Static Button", "CHECK FOR BLOCKAGE", ["Static port (L)"], "pitot"),
       item("2h", "Parachute Cover", "SEALED AND SECURE", ["Parachute cover", "CAPS composite cover"], "caps"),
@@ -236,7 +239,9 @@ export const WALK: WalkStation[] = [
     map: [-0.9, 1.7],
     items: [
       item("4a", "Static Button", "CHECK FOR BLOCKAGE", ["Static port (R)"], "pitot"),
-      item("4b", "Wing/Fuselage Fairings", "CHECK", ["Wing/fuselage fairing", wing("Right")], "airframe"),
+      item("4b", "Wing/Fuselage Fairings", "CHECK", ["Wing/fuselage fairing"], "airframe", {
+        target: toVec3(wingP(0.66, 0.4, 1)), // approximate: visible upper skin at the blended wing root
+      }),
       item("4c", "Door Lock", "UNLOCK", ["Cabin door key lock"], "cabin"),
     ],
   },
@@ -280,7 +285,9 @@ export const WALK: WalkStation[] = [
     cam: { p: [0.9, EYE_Y, 7.4], t: [1.2, -0.15, 5.5] },
     map: [1.2, 7],
     items: [
-      item("6a", "Tip", "ATTACHMENT", [wing("Right")], "airframe"),
+      item("6a", "Tip", "ATTACHMENT", ["Wing tip"], "airframe", {
+        target: toVec3(wingP(WTIP - 0.03, 0.3, 1)), // approximate: an inspection point on the rounded tip skin
+      }),
       item(
         "6b",
         "Wing Tip Light and Lens",
@@ -298,7 +305,9 @@ export const WALK: WalkStation[] = [
     cam: { p: [3.4, EYE_Y, 2.7], t: [1.4, -0.6, 1.9] },
     map: [3, 3.6],
     items: [
-      item("7a", "Leading Edge and Stall Strips", "CONDITION", [wing("Right"), "Stall strips"], "airframe"),
+      item("7a", "Leading Edge and Stall Strips", "CONDITION", ["Wing leading edge", "Stall strips"], "airframe", {
+        target: "Stall strips",
+      }),
       item("7b", "Fuel Cap", "CHECK QUANTITY AND SECURE", ["Filler cap", "Fuel filler neck"], "fuel"),
       item("7c", "Fuel Drains (2 underside)", "DRAIN AND SAMPLE", ["Tank drain", "Collector drain"], "fuel", {
         crouch: true,
@@ -333,7 +342,8 @@ export const WALK: WalkStation[] = [
         "engine",
       ),
       item("8c", "Ice Inspection Light", "CONDITION AND SECURITY", ["Ice inspection light"], "lighting"),
-      item("8d", "Cowling", "ATTACHMENTS SECURE", ["Fuselage"], "airframe", {
+      item("8d", "Cowling", "ATTACHMENTS SECURE", ["Cowling inspection region"], "airframe", {
+        target: toVec3(onSkin(3.1, -0.15, 1, 1)), // approximate inspection point on the actual cowl side skin
         note: "The cowl is part of the displayed shell; inspect its actual attachments.",
       }),
       item("8e", "Exhaust Pipe", "CONDITION, SECURITY, AND CLEARANCE", ["Exhaust tailpipe"], "engine"),
@@ -363,7 +373,9 @@ export const WALK: WalkStation[] = [
     map: [3.6, -1.6],
     items: [
       item("10a", "Ice Inspection Light", "CONDITION AND SECURITY", ["Ice inspection light"], "lighting"),
-      item("10b", "Cowling", "ATTACHMENTS SECURE", ["Fuselage"], "airframe"),
+      item("10b", "Cowling", "ATTACHMENTS SECURE", ["Cowling inspection region"], "airframe", {
+        target: toVec3(onSkin(3.1, -0.15, -1, 1)), // approximate inspection point on the actual cowl side skin
+      }),
       item("10c", "External Power", "DOOR SECURE", ["External power door", "Ground service receptacle"], "electrical"),
       item("10d", "Gascolator (underside)", "DRAIN FOR 3 SECONDS, SAMPLE", ["Gascolator drain"], "fuel", {
         crouch: true,
@@ -391,7 +403,9 @@ export const WALK: WalkStation[] = [
         crouch: true,
       }),
       item("11f", "Fuel Cap", "CHECK QUANTITY AND SECURE", ["Filler cap", "Fuel filler neck"], "fuel"),
-      item("11g", "Leading Edge and Stall Strips", "CONDITION", [wing("Left"), "Stall strips"], "airframe"),
+      item("11g", "Leading Edge and Stall Strips", "CONDITION", ["Wing leading edge", "Stall strips"], "airframe", {
+        target: "Stall strips",
+      }),
     ],
   },
   {
@@ -410,7 +424,9 @@ export const WALK: WalkStation[] = [
         [lightL, "Wingtip landing light", "Aft position light (white)"],
         "lighting",
       ),
-      item("12d", "Tip", "ATTACHMENT", [wing("Left")], "airframe"),
+      item("12d", "Tip", "ATTACHMENT", ["Wing tip"], "airframe", {
+        target: toVec3(wingP(-WTIP + 0.03, 0.3, 1)), // approximate: an inspection point on the rounded tip skin
+      }),
     ],
   },
   {

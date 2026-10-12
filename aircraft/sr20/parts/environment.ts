@@ -142,12 +142,12 @@ part(() => box(0.08, 0.04, 0.12), ["environment"], {
 export const CREW_DISPLAY_VENT = (s: number): Vec3 => [2.272, 0.133, s < 0 ? -0.413 : 0.222];
 export const CREW_PANEL_VENT = (s: number): Vec3 => [2.172, -0.065, s < 0 ? -0.118 : 0.123];
 export const CREW_FLOOR_VENT = (s: number): Vec3 => [2.3, -0.186, s * 0.32];
-export const PAX_PANEL_VENT = (s: number): Vec3 => [0.48, 0, s * 0.55];
-export const PAX_FLOOR_VENT = (s: number): Vec3 => [0.48, -0.43, s * 0.53];
+export const PAX_PANEL_VENT = (s: number): Vec3 => [0.48, 0, s * 0.517];
+export const PAX_FLOOR_VENT = (s: number): Vec3 => [0.48, -0.43, s * 0.517];
 export const DEFROST_VENT: Vec3 = [2.32, 0.352, 0];
 for (const s of [-1, 1]) {
   part(() => box(0.2, 0.48, 0.015), ["environment", "cabin"], {
-    pos: [0.48, -0.2, s * 0.566],
+    pos: [0.48, -0.2, s * 0.535],
     color: "#C9C2B6",
     fairing: true,
     name: "Rear cabin vent trim",

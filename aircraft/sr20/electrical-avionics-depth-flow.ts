@@ -27,6 +27,7 @@ import {
   IAU_FAN,
   SPEAKER,
   MICROPHONE,
+  MARKER_ANTENNA,
   GDL_69A,
   GSR_56,
   GATEWAY,
@@ -63,8 +64,11 @@ const add = (
 };
 const power = (key: string, pts: FlowSpec["pts"], name: string, note: string) =>
   add(key, pts, name, note, ["electrical", "avionics"], { color: "#B78E37", pcolor: "#FFD34D", r: 0.005 });
-const panelData = (key: string, a: Vec3, b: Vec3, name: string, note: string, dy = 0.22) =>
-  add(key, [a, [2.56, dy, a[2]], [2.55, dy, b[2]], b], name, note);
+const panelData = (key: string, a: Vec3, b: Vec3, name: string, note: string, dy = 0.15) => {
+  // The upper firewall narrows toward the windshield; cap schematic crossover lanes below that shoulder.
+  const laneY = Math.min(dy, 0.15);
+  add(key, [a, [2.5, laneY, a[2]], [2.49, laneY, b[2]], b], name, note);
+};
 
 /* Source output, field control, batteries and MCU distribution. */
 power(
@@ -131,7 +135,7 @@ for (const [n, z] of [
   );
 add(
   "mcuShuntData",
-  [MCU, [2.59, 0.19, -0.2], [2.58, 0.19, 0.32], GEA_71],
+  [MCU, [2.53, 0.12, -0.2], [2.52, 0.12, 0.32], GEA_71],
   "MCU → GEA electrical measurements",
   "Three MCU current shunts; electrical data acquired by GEA for engine indicating (AMM 24-30 p. 5; POH 7-56)",
   ["electrical", "avionics"],
@@ -328,14 +332,22 @@ const cabinLane = (x: number, side: number): Vec3 => [
 const rfEnd = (p: Vec3, side: number): Vec3[] => {
   if (p === GMA_350) return [p, [p[0] + 0.07, p[1], p[2]], [2.39, p[1], p[2]], [2.39, -0.5, side * 0.4]];
   if (p[0] > 2.3) return [p, [2.59, p[1], p[2]], [2.59, -0.35, side * 0.4], [2.39, -0.5, side * 0.4]];
-  const lane = cabinLane(p[0], side);
-  if (p[1] > 0.3)
-    return [p, [p[0], p[1] - 0.045, p[2]], [p[0], Math.min(p[1] - 0.09, topY(p[0]) - 0.09), lane[2]], lane];
-  return [p, lane];
+  const lane = cabinLane(p[0], side),
+    middle = fus(p[0]).cy;
+  if (p[1] > 0.3) return [p, [p[0], Math.min(p[1] - 0.045, topY(p[0]) - 0.03), p[2]], [p[0], middle, lane[2]], lane];
+  // Move across the widest section before descending: a diagonal from a side LRU toward a belly port cuts the skin.
+  return [p, [p[0], middle, p[2]], [p[0], middle, lane[2]], lane];
+};
+/** NAV coax descends inside the fixed fin, then enters the tailcone on its centerline. */
+const navLead = (p: Vec3, side: number): Vec3[] => {
+  const levels = [p[1] - 0.04, 0.9, 0.65, 0.4, 0.2, 0.1].filter((y) => y < p[1]);
+  const finPoints = levels.map((y): Vec3 => [(fLE(y) + hingeX(y)) / 2, y, 0]);
+  const root = finPoints.at(-1)!;
+  return [p, ...finPoints, [root[0], fus(root[0]).cy, 0], cabinLane(root[0], side)];
 };
 const rf = (key: string, a: Vec3, b: Vec3, name: string, note: string) => {
   const side = /(?:com2|gps2|navCoax2|xpdr|xm)/.test(key) ? 1 : -1;
-  const from = rfEnd(a, side),
+  const from = key.startsWith("navCoax") ? navLead(a, side) : rfEnd(a, side),
     to = rfEnd(b, side);
   const start = from.at(-1)![0],
     finish = to.at(-1)![0];
@@ -436,11 +448,22 @@ rf(
 );
 rf(
   "markerCoax",
-  [-0.05, botY(-0.05) + 0.025, 0],
+  MARKER_ANTENNA,
   GMA_350,
   "Marker beacon antenna coax",
   "Sled beneath baggage floor inside airplane with A/C installation, to GMA marker receiver (POH 7-90)",
 );
+
+/** Existing antenna attachment points may stand just outside the skin. These short terminal leads are intentional;
+ * no interior LRU endpoint or whole flow receives an exterior exemption. NAV coax stays inside the fixed fin instead.
+ */
+export const EXTERIOR_RF_PORTS: Record<string, { end: "start" | "finish"; length: number }[]> = {
+  com1Coax: [{ end: "finish", length: 0.1 }],
+  com2Coax: [{ end: "finish", length: 0.1 }],
+  gps1Coax: [{ end: "start", length: 0.1 }],
+  gps2Coax: [{ end: "start", length: 0.1 }],
+  xpdrCoax: [{ end: "finish", length: 0.1 }],
+};
 
 /* Ambient-air cooling ducts: actual powered fan branch determines particle movement. */
 for (const [key, fan, dest, note] of [
@@ -451,7 +474,7 @@ for (const [key, fan, dest, note] of [
 ] as const)
   add(
     key,
-    [fan, [2.6, fan[1], fan[2]], [2.59, dest[1], dest[2]], dest],
+    [fan, [2.48, fan[1], fan[2]], [2.47, dest[1], dest[2]], dest],
     key.startsWith("iau") ? "Integrated-avionics cooling duct" : "Display heat-sink airflow",
     note + " (POH 7-91; AMM 21-20 p. 1)",
     ["avionics"],

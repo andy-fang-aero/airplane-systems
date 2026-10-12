@@ -77,7 +77,9 @@ export function nameCentres(name: string, side: Side = 0): THREE.Vector3[] {
   return out;
 }
 export function stepCentroid(step: Step): THREE.Vector3 | null {
-  const points = stepParts(step).shown.flatMap((p) => nameCentres(p, stepSide(step)));
+  if (Array.isArray(step.item.target)) return V(...step.item.target);
+  const names = step.item.target ? [step.item.target] : stepParts(step).shown;
+  const points = names.flatMap((p) => nameCentres(p, stepSide(step)));
   return points.length ? points.reduce((a, p) => a.add(p), V(0, 0, 0)).multiplyScalar(1 / points.length) : null;
 }
 let outline: THREE.Box3[] | null = null;

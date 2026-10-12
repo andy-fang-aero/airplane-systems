@@ -5,7 +5,7 @@
  * Connectivity is sourced; bends, bores and particle speeds are explanatory.
  */
 import type { FlowSpec } from "@/lib/catalogue";
-import { V, toVec3, type Vec3 } from "@/lib/math";
+import { V, toV, toVec3, type Vec3 } from "@/lib/math";
 import { FW, wingP } from "./geometry";
 import { ENGINE_FUEL_PUMP, INDUCTION_PLENUM } from "./engine-anchors";
 import { fuelAvail, type Elec, type Sim } from "./model";
@@ -60,11 +60,22 @@ for (const s of [-1, 1]) {
     name: `${label} feed line`,
     note: "Collector to three-position selector. LEFT or RIGHT feeds one tank; OFF isolates both (POH 11934-005 7-42; AMM 12137-002 Rev A1 28-20 p. 1). Routing approximate.",
   });
-  add(`fuelVent${side}`, [tankTop(s, TANK_SPAN[1] - 0.06), toVec3(wingP(s * 4.85, 0.45, 0)), NACA_FUEL_VENT(s)], {
-    name: `${label} tank vent line`,
-    note: "Fuel-resistant plastic connects tank top to lower-wing NACA vent. No moisture-trapping low points in normal ground or level flight. Independent vent for each tank; static drawing because the source gives no flow rate (AMM 12137-002 Rev A1 28-10 pp. 1–2; POH 11934-005 7-41).",
-    ...quiet,
-  });
+  add(
+    `fuelVent${side}`,
+    [
+      tankTop(s, TANK_SPAN[1] - 0.06),
+      toVec3(wingP(s * 4.85, 0.45, 0)),
+      toVec3(toV(NACA_FUEL_VENT(s)).add(V(0, 0.026, 0))),
+      NACA_FUEL_VENT(s),
+    ],
+    {
+      name: `${label} tank vent line`,
+      r: 0.005,
+      tension: 0.1,
+      note: "Fuel-resistant plastic connects tank top to lower-wing NACA vent. No moisture-trapping low points in normal ground or level flight. Independent vent for each tank; static drawing because the source gives no flow rate (AMM 12137-002 Rev A1 28-10 pp. 1–2; POH 11934-005 7-41).",
+      ...quiet,
+    },
+  );
   add(`collectorVent${side}`, [collectorTop(s), tankTop(s)], {
     name: `${label} collector vent`,
     note: "Collector top vents to associated tank's inboard fuel rib. Source gives no vent flow direction or rate, so particles are omitted (AMM 12137-002 Rev A1 28-10 p. 2; POH 11934-005 7-41).",
@@ -179,7 +190,7 @@ for (const [key, s, sump] of [
 ] as const)
   pressure(
     key,
-    [STATIC_PORT(s), sump, [STATIC_TEE[0] - 0.04, 0.05, s * 0.18], STATIC_TEE],
+    [STATIC_PORT(s), sump, [sump[0] + 0.07, sump[1], sump[2]], [STATIC_TEE[0] - 0.04, 0.05, s * 0.18], STATIC_TEE],
     `${s > 0 ? "Right" : "Left"} static port line`,
     "Port → directly mounted static sump → LH CAPS bulkhead tee (AMM 12137-002 Rev A1 34-10 p. 1, Fig 34-10-1 p. 19).",
   );
@@ -250,6 +261,19 @@ add("stallSignal", [STALL_SWITCH, STALL_CONNECTOR], {
 
 /** Replace original fuelL/fuelR/fuelMain and pitot/static/static2/stall; leave engine injectors to engine-depth-flow.ts. */
 export const FUEL_PITOT_DEPTH_FLOWS = F;
+/** Short skin penetrations at documented external ports, not exemptions for entire routes.
+ * Stub envelopes are approximate display dimensions; internal tube walls remain inside the skin. */
+export const FUEL_PITOT_SKIN_PORTS: Readonly<Record<string, { point: Vec3; reach: number; part: string }>> = {
+  fuelVentL: { point: NACA_FUEL_VENT(-1), reach: 0.025, part: "NACA fuel vent" },
+  fuelVentR: { point: NACA_FUEL_VENT(1), reach: 0.025, part: "NACA fuel vent" },
+  fuelDrainOutlet: { point: GASCOLATOR_DRAIN, reach: 0.025, part: "Gascolator drain" },
+  static: { point: STATIC_PORT(1), reach: 0.025, part: "Static port (R)" },
+  staticL: { point: STATIC_PORT(-1), reach: 0.025, part: "Static port (L)" },
+  stall: { point: STALL_INLET, reach: 0.025, part: "Stall warning inlet" },
+  oat1: { point: OAT_1, reach: 0.02, part: "OAT sensor 1" },
+  oat2: { point: OAT_2, reach: 0.02, part: "OAT sensor 2" },
+};
+
 export const isOptionalPitotFlow = (key: string) => ["pitotAdahrs2", "staticAdahrs2", "oat2"].includes(key);
 /** Pressure branches remain available with electronics off; only optional installation controls branch visibility. */
 export function fuelPitotDepthRates(s: Sim, E: Elec): Record<string, number> {

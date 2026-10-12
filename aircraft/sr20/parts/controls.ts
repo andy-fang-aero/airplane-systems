@@ -257,7 +257,8 @@ Object.entries(PULLEYS).forEach(([key, d]) => {
   const chan = key.startsWith("a") ? ["aileron"] : key.startsWith("r") ? ["rudder"] : ["elevator"];
   part(() => box(0.012, 0.014, 0.045), ["controls"], {
     chan: chan as ("aileron" | "rudder" | "elevator")[],
-    pos: [d.c[0], d.c[1] - d.r - 0.009, d.c[2]],
+    // Vertical-axis wing sectors need a radial keeper in the x-z plane, inside the wing.
+    pos: d.axis === "y" ? [d.c[0] + d.r + 0.009, d.c[1], d.c[2]] : [d.c[0], d.c[1] - d.r - 0.009, d.c[2]],
     color: STEEL,
     name: "Pulley cable retainer",
     note: "Keeper prevents the control cable leaving its pulley and fouling adjacent hardware (AMM 12137-002 27-10 / 27-30 p. 1). Clearance and dimensions illustrative.",

@@ -23,7 +23,7 @@ export const BAGGAGE_DOOR = roundPoly(
   ],
   0.07,
 );
-export const BAGGAGE_HANDLE = doorHardwarePoint(-0.28, -0.12, -1, 0.005);
+export const BAGGAGE_HANDLE = doorHardwarePoint(-0.28, -0.12, -1, 0.02);
 
 for (const side of [-1, 1]) {
   const handle = DOOR_HANDLE(side),
@@ -52,7 +52,7 @@ for (const side of [-1, 1]) {
     [-0.22, "Lower cabin door hinge"],
   ] as const)
     part(() => cyl(0.011, 0.06, "y"), ["doors", "cabin"], {
-      pos: doorHardwarePoint(y > 0 ? 1.81 : 1.95, y, side, 0.016),
+      pos: doorHardwarePoint(y > 0 ? 1.81 : 1.95, y, side, y > 0 ? 0.05 : 0.025),
       color: "#85939C",
       name,
       pin: side < 0,
@@ -155,7 +155,7 @@ part(() => cyl(0.012, 0.008, "z", 16), ["doors"], {
   note: "Outside key lock at the rear edge; uses the same key as the cabin doors (POH 7-26). Pre-2901 installation follows AMM 53-40 Fig 53-40-7 sheet 1; dimensions and position approximate.",
 });
 part(() => cyl(0.011, 0.14, "y"), ["doors"], {
-  pos: doorHardwarePoint(0.07, -0.11, -1, 0.012),
+  pos: doorHardwarePoint(0.07, -0.11, -1, 0.035),
   name: "Baggage door forward hinge",
   color: "#85939C",
   pin: true,

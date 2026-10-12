@@ -18,7 +18,7 @@ export const NOSE_GEAR: Vec3 = [3.06, -0.52, 0];
 export const NOSE_CASTER: Vec3 = [0.22, -0.68, 0];
 export const PARK_HANDLE: Vec3 = [2.16, -0.17, -0.17];
 export const PARK_VALVE: Vec3 = [2.59, -0.49, -0.12];
-export const BRAKE_RESERVOIR: Vec3 = [2.78, 0.08, 0.31];
+export const BRAKE_RESERVOIR: Vec3 = [2.78, 0.035, 0.31];
 export const PEDALS = [-0.36, -0.14, 0.14, 0.36] as const;
 /** Corresponding toes at both stations operate the same wheel: POH 7-25. */
 export const toeSide = (z: number) => (z === -0.36 || z === 0.14 ? -1 : 1);
@@ -69,7 +69,8 @@ for (const side of [1, -1]) {
       pos,
       color: STEEL,
       name,
-      note: "Attach fitting clamps the composite strut to lateral ribs and wing structure (AMM 32-10 p. 1, Fig 32-10-2). Dimensions approximate.",
+      ext: name === "Main gear lower attach fitting",
+      note: "Attach fitting clamps the composite strut to lateral ribs and wing structure. The lower fitting bolts through the lower wing skin at WS 37 and its exposed clamp grips the strut (AMM 32-10 p. 1, Fig 32-10-2). Dimensions approximate.",
     });
   for (const chord of [0.4, 0.5])
     part(

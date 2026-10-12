@@ -31,6 +31,8 @@ export interface WalkItem {
   note?: string;
   /** Catalogue part, surface or shell names to highlight; names in NOT_MODELLED are shown as text only. */
   parts: string[];
+  /** Part name or point anchoring the label and camera instead of averaging the highlighted parts. */
+  target?: string | Vec3;
   /** Which side's instances of a shared part name (e.g. "Main wheel"); defaults to the station's side, "any" for both. */
   side?: "L" | "R" | "any";
   /** X-ray system shown with the item. */
@@ -356,6 +358,7 @@ export const WALK: WalkStation[] = [
         steps: ["Verify probe is hot."],
         note: "WARNING: Pitot Heat Probe may be hot.",
         parts: ["PITOT HEAT switch", "Heated pitot tube"],
+        target: "Heated pitot tube",
         side: "L",
         system: "pitot",
         why: "A cold probe can ice over in cloud; the probe should warm within 30 seconds (POH 4-4).",
@@ -695,6 +698,7 @@ export const WALK: WalkStation[] = [
         text: "Tip",
         standard: "ATTACHMENT",
         parts: ["Wing tip", "Right wingtip: nav (green) + strobe"],
+        target: "Right wingtip: nav (green) + strobe",
         system: "airframe",
         why: "The wing tip carries the navigation, strobe and recognition lights (POH 7-57).",
         ref: "POH 4-7",
@@ -1169,6 +1173,7 @@ export const WALK: WalkStation[] = [
         text: "Tip",
         standard: "ATTACHMENT",
         parts: ["Wing tip", "Left wingtip: nav (red) + strobe"],
+        target: "Left wingtip: nav (red) + strobe",
         system: "airframe",
         why: "The wing tip carries the navigation, strobe and recognition lights (POH 7-57).",
         ref: "POH 4-9",

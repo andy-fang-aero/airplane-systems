@@ -222,9 +222,9 @@ part(() => box(0.14, 0.06, 0.012), ["avionics"], {
   note: "Just above the pilot/copilot compartment; a second traffic antenna sits under the belly.",
   ext: true,
 });
-const MARKER: Vec3 = [-0.05, botY(-0.05) + 0.025, 0];
+export const MARKER_ANTENNA: Vec3 = [-0.05, botY(-0.05) + 0.055, 0];
 part(() => box(0.3, 0.012, 0.1), ["avionics"], {
-  pos: MARKER,
+  pos: MARKER_ANTENNA,
   color: ANT,
   name: "Marker beacon antenna",
   note: "Sled type below the baggage floor. With the optional air-conditioning installation represented here, it is inside the airplane (POH 7-90). Passive connection to marker receiver in GMA350. Position and dimensions approximate.",

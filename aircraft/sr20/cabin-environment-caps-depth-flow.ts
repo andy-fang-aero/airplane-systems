@@ -2,6 +2,7 @@
  * POH11934-005 7-62–68, 7-92–99; AMM12137-002 21-00/20/40/50/60, 25-10/60.
  * All routed stations, radii and particle magnitudes are illustrative. */
 import type { FlowSpec } from "@/lib/catalogue";
+import type { Vec3 } from "@/lib/math";
 import type { Elec, Sim } from "./model";
 import { cabinOperation } from "./environment";
 import { MUFFLER } from "./engine-anchors";
@@ -37,7 +38,7 @@ const air = (key: string, pts: FlowSpec["pts"], name: string, note: string, colo
   F.push({ key, pts, sys: ["environment"], name, note, color, r, tube });
 air(
   "freshFeed",
-  [FRESH_INLET, [3.1, -0.45, 0.44], FRESH_VALVE],
+  [[FRESH_INLET[0], FRESH_INLET[1], FRESH_INLET[2] - 0.025], [3.1, -0.45, 0.42], FRESH_VALVE],
   "NACA ventilation duct",
   "Lower RH cowl NACA inlet to the fresh-air inlet valve (POH7-65; AMM21-00p1). Routed station approximate.",
   COLD,
@@ -74,7 +75,7 @@ air(
 );
 air(
   "hotDump",
-  [HOT_VALVE, [2.84, -0.52, 0.48], [3.0, -0.63, 0.4]],
+  [HOT_VALVE, [2.84, -0.5, 0.3], [2.98, -0.52, 0.28]],
   "Rejected hot-air outlet",
   "With the hot-air valve closed, heated air exits into the engine compartment and is exhausted with cooling airflow (POH7-65). Particle-only rejected-air cue; no physical discharge duct geometry is inferred.",
   HOT,
@@ -83,7 +84,7 @@ air(
 );
 air(
   "freshDump",
-  [FRESH_VALVE, [2.9, -0.59, 0.48], [3.13, -0.63, 0.44]],
+  [FRESH_VALVE, [2.9, -0.5, 0.32], [3.08, -0.52, 0.28]],
   "Rejected ventilation-air outlet",
   "With the fresh-air valve closed, intake air is discharged into the engine compartment (POH7-65). Particle-only rejected-air cue; no physical discharge duct geometry is inferred.",
   COLD,
@@ -195,7 +196,7 @@ const refrigerant = (key: string, pts: FlowSpec["pts"], name: string, note: stri
   air(key, pts, name, note, color, 0.006);
 refrigerant(
   "acDischarge",
-  [AC.compressor, [3.1, -0.25, -0.26], [2.5, -0.59, 0.45], [0.7, -0.64, 0.45], AC.condenser],
+  [AC.compressor, [3.1, -0.25, -0.26], [2.5, -0.56, 0.25], [0.7, -0.56, 0.25], AC.condenser],
   "A/C discharge hose",
   "High-pressure heat-laden vapor from engine-driven compressor to under-baggage-floor condenser (POH7-66;AMM21-50p1). Firewall and underfloor hose path schematic.",
   HOT,
@@ -209,7 +210,7 @@ refrigerant(
 );
 refrigerant(
   "acLiquid",
-  [AC.receiver, [0.5, -0.62, 0.45], AC.expansion],
+  [AC.receiver, [0.5, -0.56, 0.3], AC.expansion],
   "A/C liquid line",
   "Filtered, dried liquid to the evaporator expansion valve (POH7-66;AMM21-50p1).",
   "#DFAE57",
@@ -223,14 +224,14 @@ refrigerant(
 );
 refrigerant(
   "acSuction",
-  [AC.evaporator, [2.2, -0.62, 0.46], [2.6, -0.55, 0.45], [3.1, -0.2, -0.3], AC.compressor],
+  [AC.evaporator, [2.2, -0.57, 0.25], [2.6, -0.55, 0.25], [3.1, -0.2, -0.3], AC.compressor],
   "A/C suction hose",
   "Low-pressure vapor returns from evaporator to compressor (POH7-66;AMM21-50Fig21-50-1sheet5). Routing schematic.",
   COLD,
 );
 air(
   "condAirIn",
-  [AC.intake, AC.condenser],
+  [AC.intake, [AC.intake[0], AC.intake[1] + 0.04, AC.intake[2]], AC.condenser],
   "Condenser outside-air inlet",
   "Separate outside cooling-air circuit from belly intake screen to condenser; never feeds cabin outlets (AMM21-50Fig21-50-1sheet7).",
   COLD,
@@ -238,7 +239,7 @@ air(
 );
 air(
   "condAirOut",
-  [AC.condenser, AC.condenserFan, AC.exhaust],
+  [AC.condenser, AC.condenserFan, [AC.exhaust[0], AC.exhaust[1] + 0.04, AC.exhaust[2]], AC.exhaust],
   "Condenser heat exhaust",
   "Condenser blower and outlet duct discharge heat through belly exhaust screen/deflector (AMM21-50Fig21-50-1sheet7).",
   HOT,
@@ -282,6 +283,14 @@ for (const side of [-1, 1])
   });
 
 export const CABIN_ENVIRONMENT_CAPS_DEPTH_FLOWS: FlowSpec[] = F;
+/** Only the short aperture at each documented belly port may cross the skin.
+ * Reach is a schematic mesh clearance envelope, not a source installation dimension or a whole-route exemption. */
+export const CABIN_ENVIRONMENT_SKIN_PORTS: Readonly<Record<string, { point: Vec3; reach: number; part: string }>> = {
+  condAirIn: { point: AC.intake, reach: 0.028, part: "Condenser intake screen" },
+  condAirOut: { point: AC.exhaust, reach: 0.028, part: "Condenser exhaust screen" },
+  condensate: { point: AC.drain, reach: 0.013, part: "Evaporator condensate drain" },
+};
+
 /** Replace the original environmental key block, then merge these rates into the main flow-rate result. */
 export function cabinEnvironmentCapsDepthRates(s: Sim, E: Elec): Record<string, number> {
   const c = cabinOperation(s, E),

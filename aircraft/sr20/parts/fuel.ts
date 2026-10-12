@@ -51,7 +51,7 @@ export const collectorTop = (s: number): Vec3 => {
     ext: true,
   });
   part(() => cyl(0.038, 0.055), ["fuel"], {
-    pos: [cap[0], cap[1] - 0.03, cap[2]],
+    pos: [cap[0], cap[1] - 0.038, cap[2]],
     name: "Fuel filler neck",
     note: "Filler neck with the reduced-fuel tab integrated below the cap. Tab indicates 13.0 gal usable (49.2 L) per tank (POH 11934-005 7-41; AMM 12137-002 Rev A1 28-10 p. 1). Neck size and tab height illustrative.",
     fairing: true,

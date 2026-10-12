@@ -7,13 +7,14 @@ import {
   BRAKE_RESERVOIR,
   PEDALS,
   PARK_VALVE,
-  brakeInlet,
   brakePressurePath,
   brakeTee,
   masterCylinder,
   toeSide,
   valvePort,
 } from "./parts/gear";
+import { wingP } from "./geometry";
+import { GEA_71 } from "./parts/avionics";
 import { PITCH_TRIM_MOTOR, ROLL_TRIM_MOTOR } from "./parts/controls-trim";
 
 const hydraulic = (key: string, pts: Vec3[], name: string, note: string): FlowSpec => ({
@@ -64,40 +65,44 @@ export const GEAR_CONTROLS_DEPTH_FLOWS: FlowSpec[] = [
       "Toe brakes → parking valve",
       `${side < 0 ? "LH forward" : "RH aft"} master-side parking-valve port. Circuits remain separate; handle controls both poppets (AMM 32-42 p. 24).`,
     ),
-    hydraulic(
-      "brakeWheel" + (side < 0 ? "L" : "R"),
-      brakePressurePath(side),
-      "Parking valve → wheel brake",
-      `Separate ${side < 0 ? "left" : "right"} line runs through wing bulkhead fitting and gear-strut channel, with flexible hose to caliper (AMM 32-42 pp. 18–22, Figs 32-42-3/5). Channel route and clearances approximate.`,
-    ),
+    {
+      ...hydraulic(
+        "brakeWheel" + (side < 0 ? "L" : "R"),
+        brakePressurePath(side),
+        "Parking valve → wheel brake",
+        `Separate ${side < 0 ? "left" : "right"} line runs through wing bulkhead fitting and gear-strut channel, with flexible hose to caliper (AMM 32-42 pp. 18–22, Figs 32-42-3/5). Channel route and clearances approximate.`,
+      ),
+      ext: true,
+    },
     {
       key: "brakeTemp" + (side < 0 ? "L" : "R"),
-      pts: [brakeInlet(side), [1.5, -0.62, side * 0.3], [2.3, -0.4, 0.12]],
+      // The external section follows the strut and enters the wing at the same bulkhead as the brake hose.
+      pts: [...brakePressurePath(side).reverse(), [2.45, -0.36, 0.1], GEA_71],
       sys: ["gear", "electrical"],
       r: 0.002,
       color: "#D6A04A",
       tube: true,
       count: 4,
       name: "Brake temperature sensor wiring",
+      tension: 0,
+      ext: true,
       note: "Each wheel sensor → engine/airframe avionics. 3 A ENGINE INSTR on Main Bus 2 (AMM 32-42 p. 1). Wiring route approximate.",
     } satisfies FlowSpec,
   ]),
   {
     key: "parkPosition",
-    pts: [
-      [PARK_VALVE[0] + 0.04, PARK_VALVE[1] + 0.02, PARK_VALVE[2]],
-      [2.5, -0.31, -0.08],
-      [2.3, -0.4, 0.12],
-    ],
+    pts: [[PARK_VALVE[0] + 0.04, PARK_VALVE[1] + 0.02, PARK_VALVE[2]], [2.5, -0.31, -0.08], GEA_71],
     sys: ["gear", "electrical"],
     r: 0.002,
     color: "#D6A04A",
     name: "Parking valve → GEA 71",
+    tension: 0,
     note: "Position sensor at valve arm supplies PARK BRAKE caution data through GEA 71 (AMM 32-42 p. 1). Route approximate.",
   },
   {
     key: "pitchTrimHarness",
     pts: [[1.8, -0.42, -0.15], [0.65, -0.585, 0.33], [0.2, -0.63, 0.18], [-1.8, -0.25, 0.06], PITCH_TRIM_MOTOR],
+    tension: 0,
     sys: ["controls", "electrical"],
     chan: ["elevator"],
     r: 0.0025,
@@ -109,11 +114,12 @@ export const GEAR_CONTROLS_DEPTH_FLOWS: FlowSpec[] = [
     key: "rollTrimHarness",
     pts: [
       [1.8, -0.42, -0.15],
-      [0.52, -0.63, 0.05],
-      [0.5, -0.63, -0.4],
-      [ROLL_TRIM_MOTOR[0], ROLL_TRIM_MOTOR[1], -0.9],
+      [0.6, -0.56, 0.05],
+      [0.62, -0.56, -0.25],
+      ...[-0.55, -0.9, -1.5, -2.4, ROLL_TRIM_MOTOR[2]].map((z) => wingP(z, 0.66, 0)),
       ROLL_TRIM_MOTOR,
     ],
+    tension: 0,
     sys: ["controls", "electrical"],
     chan: ["aileron"],
     r: 0.0025,
@@ -133,6 +139,7 @@ export const GEAR_CONTROLS_DEPTH_FLOWS: FlowSpec[] = [
     r: 0.0025,
     color: "#D6A04A",
     name: "Flap actuator harness",
+    tension: 0,
     note: "NON ESS BUS → 10 A FLAPS → switch, relays, actuator and proximity-sensor indication (POH 7-22–23; AMM 27-50 p. 1). EMI suppression cores are integral to harness; routing approximate.",
   },
 ];

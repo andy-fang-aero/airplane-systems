@@ -31,6 +31,7 @@ part(() => cyl(0.09, 0.17, "x"), ["propeller", "engine"], {
   pos: PROP,
   color: "#8C969E",
   name: "Propeller hub / pitch piston",
+  ext: true,
   note: "The hub supports three blades and contains a hydraulic pitch-change piston, rod and fork. Governor oil drives high pitch; the spring and centrifugal twisting moment drive low pitch as oil drains (AMM 61-10 p. 1). Simplified external envelope; this does not depict measured internal hardware.",
   pin: true,
   groups: ["oil"],

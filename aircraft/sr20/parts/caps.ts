@@ -206,7 +206,7 @@ for (const [name, at] of [
   ["Forward CAPS firewall fitting (right)", HARNESS.fwdR],
   ["Aft CAPS bulkhead fitting", HARNESS.aft],
 ] as const)
-  part(() => box(0.028, 0.04, 0.055), ["caps"], {
+  part(() => box(0.028, 0.04, 0.055).translate(at[2] === 0 ? 0 : -0.016, -0.01, -Math.sign(at[2]) * 0.02), ["caps"], {
     pos: at,
     name,
     color: "#82939D",

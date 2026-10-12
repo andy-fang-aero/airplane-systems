@@ -52,6 +52,7 @@ export { LIGHTS } from "./lights";
 import "./controls";
 import "./controls-trim";
 import "./electrical-harness";
+import "./walk-inspection";
 
 export { FIN } from "../geometry";
 export type { PartSpec } from "@/lib/catalogue";

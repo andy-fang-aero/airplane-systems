@@ -81,7 +81,15 @@ try {
     await item("8a");
     assert.equal(await page.locator(".walk-std").innerText(), "CHECK 6–7 QUARTS, LEAKS");
     await shot("oil-source-standard");
+    for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next item", exact: true }).click();
+    await item("8d");
+    await page
+      .locator(".pin")
+      .filter({ hasText: /^8d Cowling$/ })
+      .waitFor();
+    await shot("cowling-region");
     await page.getByRole("button", { name: "Exit the SR20 study walk", exact: true }).click();
+    await page.locator(".walk").waitFor({ state: "detached" });
     assert.equal(await page.locator(".walk").count(), 0);
     assert.equal(await page.locator('.syslist button[aria-current="true"] .nm').innerText(), "Overview");
     assert.equal(
@@ -114,17 +122,60 @@ try {
     // Give software-rendered WebGL time to upload the changed display texture before capturing it.
     await page.waitForTimeout(6000);
     await shot("bat2-pfd");
+    // A multi-part cockpit action must anchor probe verification to the probe, not the average of the switch and wing.
+    for (let i = 0; i < 12; i++) await page.getByRole("button", { name: "Next item", exact: true }).click();
+    await item("1p");
+    await page
+      .locator(".pin")
+      .filter({ hasText: /^1p Pitot Heat$/ })
+      .waitFor();
+    await shot("pitot-heat-probe");
+    await page.getByRole("button", { name: /^Station 6: Right Wing Tip/ }).click();
+    await item("6a");
+    await page
+      .locator(".pin")
+      .filter({ hasText: /^6a Tip$/ })
+      .waitFor();
+    await shot("right-tip-target");
+    await page.getByRole("button", { name: /^Station 7: Right Forward Wing/ }).click();
+    await item("7a");
+    await page
+      .locator(".pin")
+      .filter({ hasText: /^7a Leading Edge and Stall Strips$/ })
+      .waitFor();
+    assert.equal(await page.locator(".walk-nm").count(), 0, "leading edge and actual SR20 inboard strips are modelled");
+    await shot("leading-edge-strips");
+    await page.getByRole("button", { name: /^Station 4: Right Fuselage/ }).click();
+    await item("4a");
+    await page.getByRole("button", { name: "Next item", exact: true }).click();
+    await item("4b");
+    await page
+      .locator(".pin")
+      .filter({ hasText: /^4b Wing\/Fuselage Fairings$/ })
+      .waitFor();
+    assert.equal(await page.locator(".walk-nm").count(), 0, "the actual wing/fuselage junction is highlighted");
+    await shot("wing-root-fairing");
     if (phone) await page.getByRole("button", { name: "Exit the SR20 study walk", exact: true }).click();
     await page.locator(".fleet").getByRole("button", { name: "SR22T", exact: true }).click();
+    await page.locator(".walk").waitFor({ state: "detached" });
     assert.equal(await page.locator(".walk").count(), 0, "switching aircraft closes the SR20 walk");
     await page.locator(".toolbar").getByRole("button", { name: "Preflight", exact: true }).click();
     await page.getByRole("button", { name: "Begin walk-around", exact: true }).click();
     await item("1a");
     assert.equal(await page.locator(".walk-prog").innerText(), "Station 1 of 13 · item 1 of 26");
     await shot("sr22t-unaffected");
+    for (let i = 0; i < 17; i++) await page.getByRole("button", { name: "Next item", exact: true }).click();
+    await item("1r");
+    await page
+      .locator(".pin")
+      .filter({ hasText: /^1r Pitot Heat$/ })
+      .waitFor();
+    await shot("sr22t-pitot-heat-probe");
     assert.deepEqual(errors, [], `${kind} browser runtime errors`);
     await context.close();
-    console.log(`${kind}: deep link, sourced drains/oil, resume, BAT 2, exit and SR22T isolation passed`);
+    console.log(
+      `${kind}: deep link, sourced drains/oil, resume, BAT 2, exit, precise inspection targets and SR22T isolation passed`,
+    );
   }
 } finally {
   await browser.close();

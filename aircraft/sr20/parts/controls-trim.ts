@@ -478,6 +478,8 @@ for (const end of [0, 1]) {
   part(() => tubeGeo(flapMechanism(0).pushrods[end], 0.009, 0), ["flaps"], {
     color: STEEL,
     name: "Flap push-pull rod",
+    // Exposed drive at the flap cove follows the surface below the wing when deployed.
+    ext: true,
     dynamicGeo: true,
     anim: movingTube(
       () => live.flapAng,
@@ -495,6 +497,7 @@ for (const end of [0, 1]) {
     pos: [p.x - pivot[0], p.y - pivot[1], p.z - pivot[2]],
     color: CART,
     name: "Flap inboard drive arm",
+    ext: true,
     note: "Inboard arm moves with its flap and receives torque-tube pushrod input (AMM Fig 27-50-2).",
   });
 }

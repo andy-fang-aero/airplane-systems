@@ -45,8 +45,8 @@ part(() => box(0.08, 0.16, 0.12), ["engine"], {
   note: "Remote-mounted cooler with feed and return hoses, diffuser and mounting bracket (POH 7-38; AMM 79-20 pp. 2–7, Fig 79-20-1). The AMM distinguishes standard and hot-weather installations; this represents the standard system. Cooler and diffuser coordinates approximate.",
   groups: ["oil"],
 });
-part(() => box(0.12, 0.18, 0.018), ["engine"], {
-  pos: [OIL_COOLER[0], OIL_COOLER[1], OIL_COOLER[2] - 0.07],
+part(() => box(0.12, 0.12, 0.018), ["engine"], {
+  pos: [OIL_COOLER[0], OIL_COOLER[1] - 0.03, OIL_COOLER[2] - 0.07],
   color: "#71808A",
   name: "Oil cooler diffuser / bracket",
   note: "Directs cooling air through and supports the remote oil cooler (AMM 79-20 Fig 79-20-1). Simplified plate envelope; its shape is approximate.",
@@ -100,7 +100,7 @@ part(() => cyl(0.032, 0.083), ["engine"], {
   groups: ["oil"],
 });
 part(() => box(0.015, 0.13, 0.12), ["engine"], {
-  pos: [2.625, 0.08, 0.285],
+  pos: [2.625, 0.015, 0.285],
   color: "#6E7E88",
   name: "Air/oil separator and booster bracket",
   note: "Common bracket attached to the firewall for the air/oil separator and magneto booster (AMM 79-20 pp. 8–10, 74-10 pp. 4–5). Schematic envelope.",

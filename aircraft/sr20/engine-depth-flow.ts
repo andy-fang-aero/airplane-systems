@@ -19,6 +19,7 @@ import {
   FUEL_FLOW_SENSOR,
   GOVERNOR,
   INDUCTION_PLENUM,
+  INDUCTION_ENTRY,
   MAGNETO,
   MAP_SENSOR,
   MAT_SENSOR,
@@ -93,7 +94,14 @@ const sensors = {
   count: 4,
 };
 
-flow("intake", [[3.76, -0.13, 0.22], AIR_FILTER, [3.515, -0.16, 0.2], [3.49, -0.32, 0.16], THROTTLE], {
+flow("intakeEntrance", [[3.76, -0.13, 0.22], INDUCTION_ENTRY], {
+  ...induction,
+  tube: false,
+  ext: true,
+  name: "Air entering right cowl inlet",
+  note: "Outside air enters at the cowling opening before the internal filtered duct. Particles only; no exterior induction hose (POH7-39). Position approximate.",
+});
+flow("intake", [INDUCTION_ENTRY, AIR_FILTER, [3.515, -0.16, 0.2], [3.49, -0.32, 0.16], THROTTLE], {
   ...induction,
   name: "Filtered induction duct",
   note: "Right-forward filter → induction duct → throttle butterfly (POH7-39; AMM71-60p1). Routing approximate.",
@@ -168,7 +176,7 @@ for (const c of CYLS) {
   ] as const)
     flow(
       `${sensor.toLowerCase()}Wire${c.n}`,
-      [point, [c.x, -0.015, c.s * 0.42], [2.78, 0.045, c.s * 0.4], ENGINE_HARNESS],
+      [point, [c.x, -0.055, c.s * 0.385], [2.78, 0.015, c.s * 0.35], ENGINE_HARNESS],
       {
         ...sensors,
         name: `${sensor} signal — cyl ${c.n}`,
@@ -262,6 +270,7 @@ flow("propOil", [GOVERNOR, [3.56, -0.08, -0.1], [3.62, -0.14, 0], PROP_OIL], {
   ...oil,
   sys: ["engine", "propeller"],
   tube: false,
+  ext: true,
   name: "Governor → hub pitch piston",
   note: "Boosted governor oil drives the hub piston toward high pitch; oil release permits low pitch (POH7-40; AMM61-10p1). Internal oil path schematic; particles indicate the circuit, not measured valve flow.",
 });
@@ -377,7 +386,7 @@ export function engineDepthFlowRates(s: Sim, E: Elec, rpm: number): Record<strin
   const breathing = turning && inductionAvailable(s);
   const metered = (turning || (s.fuel.boost && E.boostPwr)) && fuelAvail(s) && s.eng.mix > 0.05;
   const combustion = s.eng.running && breathing && fuelAvail(s) && s.eng.mix > 0.05 && (op.leftMag || op.rightMag);
-  R.intake = breathing && !s.eng.altAir ? 1 : 0;
+  R.intake = R.intakeEntrance = breathing && !s.eng.altAir ? 1 : 0;
   R.alternateIntake = breathing && s.eng.altAir ? 1 : 0;
   R.servoAir = breathing ? 1 : 0;
   R.engineFuel = (turning && fuelAvail(s)) || (s.fuel.boost && E.boostPwr && fuelAvail(s)) ? 1 : 0;
