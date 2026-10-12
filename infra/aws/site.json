@@ -1,0 +1,296 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "airplane-systems static site: private S3 bucket behind CloudFront with Origin Access Control, and the view-rewrite CloudFront Function. Deploys run locally (scripts/deploy-aws.sh), so the stack holds no IAM resources. Create or change it through a reviewed change set.",
+  "Metadata": {
+    "StackName": "airplane-systems-site"
+  },
+  "Parameters": {
+    "AllowedAccountId": {
+      "Type": "String",
+      "AllowedPattern": "^[0-9]{12}$",
+      "ConstraintDescription": "a 12-digit AWS account id",
+      "Description": "The AWS account this stack may be created in (your own account id); a change set in any other account fails."
+    },
+    "NoncurrentDays": {
+      "Type": "Number",
+      "Default": 30,
+      "MinValue": 1,
+      "Description": "Days after which replaced (noncurrent) object versions expire."
+    },
+    "PriceClass": {
+      "Type": "String",
+      "Default": "PriceClass_100",
+      "AllowedValues": ["PriceClass_100", "PriceClass_200", "PriceClass_All"],
+      "Description": "CloudFront edge locations (PriceClass_100 is North America and Europe, the cheapest)."
+    }
+  },
+  "Rules": {
+    "AccountIsAllowed": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Equals": [
+              {
+                "Ref": "AWS::AccountId"
+              },
+              {
+                "Ref": "AllowedAccountId"
+              }
+            ]
+          },
+          "AssertDescription": "Deploy this stack only in the account named by the AllowedAccountId parameter."
+        }
+      ]
+    }
+  },
+  "Resources": {
+    "SiteBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "ExpireOldVersions",
+              "Status": "Enabled",
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": {
+                  "Ref": "NoncurrentDays"
+                }
+              },
+              "ExpiredObjectDeleteMarker": true,
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": 7
+              }
+            }
+          ]
+        }
+      }
+    },
+    "SiteBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "SiteBucket"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "CloudFrontRead",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+              },
+              "Action": "s3:GetObject",
+              "Resource": {
+                "Fn::Sub": "${SiteBucket.Arn}/*"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${SiteDistribution}"
+                  }
+                }
+              }
+            },
+            {
+              "Sid": "CloudFrontList",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+              },
+              "Action": "s3:ListBucket",
+              "Resource": {
+                "Fn::GetAtt": ["SiteBucket", "Arn"]
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${SiteDistribution}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "SiteOac": {
+      "Type": "AWS::CloudFront::OriginAccessControl",
+      "Properties": {
+        "OriginAccessControlConfig": {
+          "Name": {
+            "Fn::Sub": "${AWS::StackName}-oac"
+          },
+          "Description": "CloudFront signs every request to the private site bucket.",
+          "OriginAccessControlOriginType": "s3",
+          "SigningBehavior": "always",
+          "SigningProtocol": "sigv4"
+        }
+      }
+    },
+    "HtmlShortCache": {
+      "Type": "AWS::CloudFront::CachePolicy",
+      "Properties": {
+        "CachePolicyConfig": {
+          "Name": {
+            "Fn::Sub": "${AWS::StackName}-html-short"
+          },
+          "Comment": "HTML and other unhashed files: honours origin Cache-Control within 0-300 s, default 60 s.",
+          "MinTTL": 0,
+          "DefaultTTL": 60,
+          "MaxTTL": 300,
+          "ParametersInCacheKeyAndForwardedToOrigin": {
+            "EnableAcceptEncodingGzip": true,
+            "EnableAcceptEncodingBrotli": true,
+            "CookiesConfig": {
+              "CookieBehavior": "none"
+            },
+            "HeadersConfig": {
+              "HeaderBehavior": "none"
+            },
+            "QueryStringsConfig": {
+              "QueryStringBehavior": "none"
+            }
+          }
+        }
+      }
+    },
+    "ViewRewrite": {
+      "Type": "AWS::CloudFront::Function",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-view-rewrite"
+        },
+        "AutoPublish": true,
+        "FunctionConfig": {
+          "Comment": "Viewer request: /<ac>[/<view>] to /index.html, trailing slash 308.",
+          "Runtime": "cloudfront-js-2.0"
+        },
+        "FunctionCode": "// Viewer request, cloudfront-js-2.0. Mirrors next.config.ts's development view rule.\n// AIRCRAFT_IDS is copied from lib/systems.ts; the offline test prevents drift.\n// Event/query format: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-event-structure.html\nvar AIRCRAFT_IDS = [\"sr20\", \"sr22t\", \"c172s\", \"c182t\", \"da40\", \"m20c\"];\n\n// AWS recommends percent encoding; UTF-8 request values are forwarded unchanged:\n// https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-function-restrictions-all.html\nfunction encodeQueryComponent(value) {\n  // Escape raw separators/control characters without double-encoding existing percent escapes.\n  // Keep '+' as the original form-query space marker; an encoded literal plus stays %2B.\n  return value\n    .split(\"+\")\n    .map(function (part) {\n      return encodeURIComponent(part).replace(/%25([0-9a-f]{2})/gi, \"%$1\");\n    })\n    .join(\"+\");\n}\n\nfunction handler(event) {\n  var request = event.request;\n  var match = /^\\/([^/]+)(?:\\/([^/]+))?(\\/)?$/.exec(request.uri);\n  if (!match || AIRCRAFT_IDS.indexOf(match[1]) === -1) return request;\n\n  if (match[3]) {\n    var query = [];\n    Object.keys(request.querystring).forEach(function (key) {\n      var item = request.querystring[key];\n      var values = item.multiValue || [item];\n      values.forEach(function (entry) {\n        query.push(encodeQueryComponent(key) + \"=\" + encodeQueryComponent(entry.value));\n      });\n    });\n    return {\n      statusCode: 308,\n      statusDescription: \"Permanent Redirect\",\n      headers: {\n        location: { value: request.uri.slice(0, -1) + (query.length ? \"?\" + query.join(\"&\") : \"\") },\n      },\n    };\n  }\n\n  request.uri = \"/index.html\";\n  return request;\n}\n"
+      }
+    },
+    "SiteDistribution": {
+      "Type": "AWS::CloudFront::Distribution",
+      "Properties": {
+        "DistributionConfig": {
+          "Comment": "airplane-systems static site",
+          "Enabled": true,
+          "DefaultRootObject": "index.html",
+          "HttpVersion": "http2and3",
+          "IPV6Enabled": true,
+          "PriceClass": {
+            "Ref": "PriceClass"
+          },
+          "ViewerCertificate": {
+            "CloudFrontDefaultCertificate": true
+          },
+          "Origins": [
+            {
+              "Id": "site-bucket",
+              "DomainName": {
+                "Fn::GetAtt": ["SiteBucket", "RegionalDomainName"]
+              },
+              "OriginAccessControlId": {
+                "Fn::GetAtt": ["SiteOac", "Id"]
+              },
+              "S3OriginConfig": {
+                "OriginAccessIdentity": ""
+              }
+            }
+          ],
+          "DefaultCacheBehavior": {
+            "TargetOriginId": "site-bucket",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": ["GET", "HEAD"],
+            "CachedMethods": ["GET", "HEAD"],
+            "Compress": true,
+            "CachePolicyId": {
+              "Ref": "HtmlShortCache"
+            },
+            "ResponseHeadersPolicyId": "67f7725c-6f97-4210-82d7-5512b31e9d03",
+            "FunctionAssociations": [
+              {
+                "EventType": "viewer-request",
+                "FunctionARN": {
+                  "Fn::GetAtt": ["ViewRewrite", "FunctionARN"]
+                }
+              }
+            ]
+          },
+          "CacheBehaviors": [
+            {
+              "PathPattern": "/_next/static/*",
+              "TargetOriginId": "site-bucket",
+              "ViewerProtocolPolicy": "redirect-to-https",
+              "AllowedMethods": ["GET", "HEAD"],
+              "CachedMethods": ["GET", "HEAD"],
+              "Compress": true,
+              "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+              "ResponseHeadersPolicyId": "67f7725c-6f97-4210-82d7-5512b31e9d03"
+            }
+          ],
+          "CustomErrorResponses": [
+            {
+              "ErrorCode": 404,
+              "ResponseCode": 404,
+              "ResponsePagePath": "/404.html",
+              "ErrorCachingMinTTL": 10
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "BucketName": {
+      "Description": "The private site bucket.",
+      "Value": {
+        "Ref": "SiteBucket"
+      }
+    },
+    "DistributionId": {
+      "Description": "The CloudFront distribution id.",
+      "Value": {
+        "Ref": "SiteDistribution"
+      }
+    },
+    "DistributionDomainName": {
+      "Description": "The dxxxx.cloudfront.net name.",
+      "Value": {
+        "Fn::GetAtt": ["SiteDistribution", "DomainName"]
+      }
+    },
+    "SiteUrl": {
+      "Description": "The site's https URL.",
+      "Value": {
+        "Fn::Sub": "https://${SiteDistribution.DomainName}"
+      }
+    }
+  }
+}
