@@ -10,7 +10,7 @@ The approved numeric GitHub IDs are `11378800` (ligolnik) and `340809365` (andy-
 
 ## Trust and event flow
 
-1. A trusted `pull_request_target` event records an endorsement check for the exact current SHA, fork, actor, event action, workflow commit, and policy hash.
+1. A trusted `pull_request_target` event records an endorsement check for the exact current SHA, fork, actor, event action, workflow commit, and policy hash. Its digest is also recorded as a successful step name in the trusted `prepare` job. The controller verifies the receipt against that run’s attempt-1 job metadata, including the workflow path, actor, repository, fork and SHA. Custom checks may attach to another workflow’s check suite, so suite equality and caller-supplied URLs are not provenance. A missing proof fails the approval job visibly. Older receipts without this proof require a fresh eligible event; rerunning a job remains forbidden.
 2. Genuine Vercel bot comments and Vercel status events wake the controller. It re-reads the PR, main-branch policy, endorsement provenance, the exact current SHA status and its full-status Vercel bot creator, and Vercel job-info before acting.
 3. Per-PR concurrency and a persistent claim written before the authorization POST prevent automatic replay. Ambiguous responses retain the claim for manual investigation. Do not install a second controller or change the concurrency namespace.
 4. Only the upstream workflow commit is checked out, using a pinned checkout action. No fork code or dependencies execute in this workflow. The Vercel token is provided only to the privileged controller step. Reruns are refused.

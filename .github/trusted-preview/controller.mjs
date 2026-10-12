@@ -3,6 +3,7 @@ import { readFileSync, appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 export const ENDORSE = "Trusted preview: SHA endorsement";
+export const PROOF_STEP = "SHA endorsement ";
 export const CLAIM = "Trusted preview: authorization attempt";
 export class Refused extends Error {}
 const insist = (ok, code) => {
@@ -157,6 +158,9 @@ async function endorse(io, p, runtime, event) {
       },
     });
   }
+  // The next trusted workflow step records this digest in GitHub-owned job metadata.
+  // Custom check suites and details URLs do not identify their creating workflow.
+  io.recordEndorsement(encoded);
   return original;
 }
 
@@ -229,13 +233,11 @@ export async function hasEndorsement(io, p, pr) {
       !sha(r.workflowSha)
     )
       continue;
-    // GitHub rewrites custom check URLs to /runs/<check-id>. Bind the check
-    // to its actual Actions check suite instead of trusting a caller-supplied URL.
-    if (!integer(c.check_suite?.id)) continue;
+    // A custom check can attach to another workflow's suite. Authenticate the
+    // receipt against a successful step of the actual trusted prepare job.
     const run = await get(io, p, `/actions/runs/${r.runId}`);
     if (
       run.id === r.runId &&
-      run.check_suite_id === c.check_suite.id &&
       run.event === "pull_request_target" &&
       run.path === p.workflowPath &&
       run.run_attempt === 1 &&
@@ -243,8 +245,24 @@ export async function hasEndorsement(io, p, pr) {
       run.repository?.id === p.repositoryId &&
       run.head_repository?.id === pr.head.repo.id &&
       run.head_sha === pr.head.sha
-    )
-      return true;
+    ) {
+      const jobs = await all(io, p, `/actions/runs/${r.runId}/attempts/1/jobs`, "jobs");
+      const prepareJobs = jobs.filter((job) => job.name === "prepare");
+      if (prepareJobs.length !== 1) continue;
+      const job = prepareJobs[0];
+      if (
+        job.run_id === r.runId &&
+        job.run_attempt === 1 &&
+        job.head_sha === pr.head.sha &&
+        job.status === "completed" &&
+        job.conclusion === "success" &&
+        job.steps?.some(
+          (step) =>
+            step.name === PROOF_STEP + c.external_id && step.status === "completed" && step.conclusion === "success",
+        )
+      )
+        return true;
+    }
   }
   return false;
 }
@@ -401,10 +419,15 @@ export function makeIO(env, fetchImpl = fetch) {
       );
       return request("https://api.vercel.com", method, path, body, env.VERCEL_APPROVAL_TOKEN);
     },
+    recordEndorsement: (encoded) => appendFileSync(env.GITHUB_OUTPUT, `endorsement=${encoded}\n`),
     now: () => Date.now(),
     mask: (secret) => console.log("::add-mask::" + secret),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   };
+}
+
+export function approvalNeedsAttention(result) {
+  return ["no_trusted_sha_endorsement", "approval_outcome_uncertain_or_rejected"].includes(result);
 }
 
 async function main() {
@@ -451,7 +474,12 @@ async function main() {
       )
         process.exitCode = 1;
     }
-    if (result.result === "approval_outcome_uncertain_or_rejected") process.exitCode = 1;
+    if (approvalNeedsAttention(result.result)) {
+      console.error(
+        `::error::Trusted preview requires attention: ${result.result}. Inspect the trusted prepare job; do not replay an authorization claim.`,
+      );
+      process.exitCode = 1;
+    }
   } else throw new Refused("UNKNOWN_MODE");
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

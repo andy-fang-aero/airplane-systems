@@ -1,7 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { prepare, approve, validateRuntime, parseJob, makeIO, ENDORSE, CLAIM, Refused } from "./controller.mjs";
+import {
+  prepare,
+  approve,
+  validateRuntime,
+  parseJob,
+  makeIO,
+  ENDORSE,
+  CLAIM,
+  Refused,
+  PROOF_STEP,
+  digest,
+  approvalNeedsAttention,
+} from "./controller.mjs";
 const template = JSON.parse(readFileSync(new URL("./policy.json", import.meta.url)));
 const clone = (x) => structuredClone(x);
 export function harness() {
@@ -74,6 +86,9 @@ export function harness() {
     failPost: false,
   };
   const io = {
+    recordEndorsement: (encoded) => {
+      state.proof = encoded;
+    },
     gh: async (method, path, body) => {
       if (method === "POST" && path.endsWith("/check-runs")) {
         const c = {
@@ -119,6 +134,27 @@ export function harness() {
       if (path.includes("/statuses?")) return clone(state.fullStatuses ?? state.status.statuses);
       if (path.includes("/issues/40/comments?")) return clone(state.comments);
       if (path.includes("/issues/comments/100")) return clone(state.comments[0]);
+      if (path.includes("/attempts/1/jobs"))
+        return {
+          jobs: state.jobs ?? [
+            {
+              name: "prepare",
+              run_id: runtime.runId,
+              run_attempt: 1,
+              head_sha: pr.head.sha,
+              status: "completed",
+              conclusion: "success",
+              steps: [
+                {
+                  name: PROOF_STEP + state.proof,
+                  status: "completed",
+                  conclusion: "success",
+                },
+              ],
+              ...state.jobOverride,
+            },
+          ],
+        };
       if (path.includes("/actions/runs/"))
         return {
           id: runtime.runId,
@@ -735,7 +771,8 @@ test("approved machine-account ID can endorse and authorize its own fork PR", as
 });
 
 for (const [name, runOverride] of [
-  ["different check suite", { check_suite_id: 9999 }],
+  ["different repository", { repository: { id: 9999 } }],
+  ["different workflow", { path: ".github/workflows/ci.yml" }],
   ["different run ID", { id: 9999 }],
   ["different head SHA", { head_sha: "c".repeat(40) }],
   ["different source fork", { head_repository: { id: 9999 } }],
@@ -910,4 +947,74 @@ test("stale non-expiring share is revoked without publication", async () => {
   assert.equal((await h.publish()).result, "stale_link_revoked_not_published");
   assert.deepEqual(h.shareWrites[1].body, { revoke: { secret: "FAKE_SHARE_VALUE_123", regenerate: false } });
   assert.equal(h.commentWrites.length, 0);
+});
+
+test("custom endorsement in CI suite authenticates via trusted prepare step, not suite or URL", async () => {
+  const h = harness();
+  await endorse(h);
+  h.state.runOverride = { check_suite_id: 9999 };
+  assert.equal((await run(h)).result, "approval_http_success_deployment_unverified");
+  await run(h);
+  assert.equal(h.state.posts.length, 1);
+});
+for (const [name, override] of [
+  ["wrong job", { name: "check" }],
+  ["wrong run", { run_id: 9999 }],
+  ["rerun", { run_attempt: 2 }],
+  ["wrong SHA", { head_sha: "c".repeat(40) }],
+  ["unfinished job", { status: "in_progress" }],
+  ["failed job", { conclusion: "failure" }],
+  ["missing proof", { steps: [] }],
+  ["failed proof", { steps: [{ status: "completed", conclusion: "failure" }] }],
+])
+  test("prepare proof rejects " + name, async () => {
+    const h = harness();
+    await endorse(h);
+    h.state.jobOverride = override;
+    assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+    assert.equal(h.state.posts.length, 0);
+  });
+test("a forged receipt pointing at a genuine trusted run lacks its exact digest proof", async () => {
+  const h = harness();
+  await endorse(h);
+  const c = h.state.checks[0];
+  const r = JSON.parse(c.output.text);
+  r.workflowSha = "c".repeat(40);
+  c.output.text = JSON.stringify(r);
+  c.external_id = "tpe-v1:" + digest(r);
+  assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+  assert.equal(h.state.posts.length, 0);
+});
+test("old custom check without workflow proof cannot be recovered by rerunning", async () => {
+  const h = harness();
+  await endorse(h);
+  h.state.proof = undefined;
+  assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+  h.runtime.attempt = "2";
+  await assert.rejects(() => run(h), /RERUN_OR_LOCAL_REFUSED/);
+  assert.equal(h.state.posts.length, 0);
+});
+test("missing provenance and uncertain POST are actionable failures, duplicate claims are not replayed", () => {
+  assert.equal(approvalNeedsAttention("no_trusted_sha_endorsement"), true);
+  assert.equal(approvalNeedsAttention("approval_outcome_uncertain_or_rejected"), true);
+  assert.equal(approvalNeedsAttention("already_claimed_no_retry"), false);
+});
+
+for (const conclusion of ["skipped", "failure", null]) {
+  test(`matching proof step with ${conclusion} conclusion is refused`, async () => {
+    const h = harness();
+    await endorse(h);
+    h.state.jobOverride = { steps: [{ name: PROOF_STEP + h.state.proof, status: "completed", conclusion }] };
+    assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+    assert.equal(h.state.posts.length, 0);
+  });
+}
+test("duplicate or missing prepare jobs are refused", async () => {
+  const h = harness();
+  await endorse(h);
+  for (const jobs of [[], [{ name: "prepare" }, { name: "prepare" }]]) {
+    h.state.jobs = jobs;
+    assert.equal((await run(h)).result, "no_trusted_sha_endorsement");
+  }
+  assert.equal(h.state.posts.length, 0);
 });
