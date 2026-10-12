@@ -28,6 +28,8 @@ import {
 export type WalkPhase = "intro" | "resume" | "walk" | "done";
 export interface WalkState {
   phase: WalkPhase;
+  /** Completion survives returning to the items for review; only a new walk clears it. */
+  done: boolean;
   /** Current step index into `walkNow().steps`. */
   at: number;
   marks: Progress["marks"];
@@ -52,6 +54,7 @@ const readBig = () => {
 
 export const useWalk = create<WalkState>(() => ({
   phase: "intro",
+  done: false,
   at: 0,
   marks: {},
   ms: 0,
@@ -77,8 +80,7 @@ function persist() {
   const w = useWalk.getState();
   if (w.phase !== "walk" && w.phase !== "done") return;
   const step = steps[w.at];
-  if (step)
-    saveProgress({ v: 1, at: step.item.id, marks: w.marks, ms: Math.round(elapsed(w)), done: w.phase === "done" });
+  if (step) saveProgress({ v: 1, at: step.item.id, marks: w.marks, ms: Math.round(elapsed(w)), done: w.done });
 }
 
 /** The camera as the user left it (the live orbit, which may have moved since the last request), else the last request. */
@@ -135,6 +137,7 @@ export function openWalk(n?: number) {
   const resumable = !!saved && !saved.done && steps.some((x) => x.item.id === saved.at);
   useWalk.setState({
     phase: resumable ? "resume" : "intro",
+    done: false,
     from: n ?? 1,
     at: 0,
     marks: {},
@@ -153,6 +156,7 @@ export function openWalk(n?: number) {
     spot: null,
   });
   setSim(rampState(s));
+  live.rpm = 0;
   live.flapAng = FLAP_DEG[0];
 }
 
@@ -213,7 +217,7 @@ export function bootWalk(search: string) {
 /** Start walking at the intro's station, with no marks. */
 export function beginWalk() {
   const at = Math.max(0, stationStart(steps, useWalk.getState().from));
-  useWalk.setState({ phase: "walk", at, marks: {}, ms: 0, since: now() });
+  useWalk.setState({ phase: "walk", done: false, at, marks: {}, ms: 0, since: now() });
   persist();
 }
 
@@ -222,13 +226,13 @@ export function resumeWalk() {
   const saved = loadProgress(),
     at = saved ? steps.findIndex((x) => x.item.id === saved.at) : -1;
   if (!saved || at < 0) return beginWalk();
-  useWalk.setState({ phase: "walk", at, marks: saved.marks, ms: saved.ms, since: now() });
+  useWalk.setState({ phase: "walk", done: saved.done, at, marks: saved.marks, ms: saved.ms, since: now() });
 }
 
 /** Forget the saved progress and go back to the intro. */
 export function resetWalk() {
   saveProgress(null);
-  useWalk.setState({ phase: "intro", from: 1, at: 0, marks: {}, ms: 0, since: null });
+  useWalk.setState({ phase: "intro", done: false, from: 1, at: 0, marks: {}, ms: 0, since: null });
   if (prior) setSim(rampState(prior.s));
 }
 
@@ -247,7 +251,7 @@ export function markStep(kind: "ok" | "skip") {
   if (w.phase !== "walk") return;
   const marks = { ...w.marks, [steps[w.at].item.id]: kind };
   if (w.at >= steps.length - 1) {
-    useWalk.setState({ marks, phase: "done", ms: elapsed(w), since: null });
+    useWalk.setState({ marks, phase: "done", done: true, ms: elapsed(w), since: null });
     persist();
   } else {
     useWalk.setState({ marks });

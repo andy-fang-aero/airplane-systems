@@ -4,7 +4,7 @@
  * the UI share it.
  */
 import * as THREE from "three";
-import type { BufferGeometry } from "three";
+import { specGeo } from "@/lib/catalogue";
 import { toVec3, V } from "@/lib/math";
 import { partCentre, partSide, type Side } from "@/lib/spot";
 import { doorHinge } from "./geometry";
@@ -87,13 +87,6 @@ function groupOrigin(parent: string): THREE.Vector3 | null {
   return null;
 }
 
-const geos = new Map<object, BufferGeometry>();
-const geoOf = (spec: { geo: () => BufferGeometry }) => {
-  let g = geos.get(spec);
-  if (!g) geos.set(spec, (g = spec.geo()));
-  return g;
-};
-
 /**
  * Centres of every instance of a part, surface or shell name on `side` (0: all), in airplane coordinates; instances on
  * moving groups the walk-around can't place are left out. Empty for names the catalogue doesn't have.
@@ -104,7 +97,7 @@ export function nameCentres(name: string, side: Side = 0): THREE.Vector3[] {
   const keep = (z: number) => !side || Math.abs(z) < 0.05 || Math.sign(z) === side;
   for (const p of CAT.parts) {
     if (p.name !== name) continue;
-    const geo = geoOf(p);
+    const geo = specGeo(p);
     const s = partSide(p, geo, CAT);
     if (side && s && s !== side) continue;
     const o = p.parent ? groupOrigin(p.parent) : V(0, 0, 0);
@@ -112,14 +105,14 @@ export function nameCentres(name: string, side: Side = 0): THREE.Vector3[] {
   }
   for (const s of CAT.surfaces) {
     if (s.name !== name) continue;
-    const g = geoOf(s);
+    const g = specGeo(s);
     if (!g.boundingBox) g.computeBoundingBox();
     const c = g.boundingBox!.getCenter(new THREE.Vector3()).add(V(...s.pivot));
     if (keep(c.z)) out.push(c);
   }
   for (const s of CAT.shells) {
     if (s.name !== name) continue;
-    const g = geoOf(s);
+    const g = specGeo(s);
     if (!g.boundingBox) g.computeBoundingBox();
     const c = g.boundingBox!.getCenter(new THREE.Vector3());
     if (keep(c.z)) out.push(c);
@@ -175,12 +168,12 @@ let outline: THREE.Box3[] | null = null;
 export function underAirplane(p: THREE.Vector3) {
   outline ??= [
     ...CAT.shells.map((s) => {
-      const g = geoOf(s);
+      const g = specGeo(s);
       if (!g.boundingBox) g.computeBoundingBox();
       return g.boundingBox!.clone();
     }),
     ...CAT.surfaces.map((s) => {
-      const g = geoOf(s);
+      const g = specGeo(s);
       if (!g.boundingBox) g.computeBoundingBox();
       return g.boundingBox!.clone().translate(V(...s.pivot));
     }),
