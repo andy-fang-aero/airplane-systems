@@ -1,0 +1,13 @@
+/* The two Cirrus study walks share typography and responsive layout; only SR20-specific selectors belong here. */
+.sr20-walk .walk-src a {
+  color: inherit;
+}
+.sr20-walk .walk-station-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.sr20-walk .walk-station-list button {
+  flex: 1 1 10rem;
+  text-align: left;
+}

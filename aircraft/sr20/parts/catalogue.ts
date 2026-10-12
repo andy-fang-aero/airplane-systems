@@ -11,6 +11,9 @@ import { magFires, sysNow } from "@/lib/anims";
 import { paintSkin, wingP } from "../geometry";
 import { live } from "../model";
 import { useSR20 } from "../store";
+import { useView } from "@/lib/view";
+import { ENGINE_GROUPS, engineHidden } from "../engine-groups";
+import { useEngineGroups } from "../engine-group-store";
 
 export { chanOfKey };
 
@@ -19,9 +22,27 @@ export { chanOfKey };
 export const CAT = new Catalogue(
   "sr20",
   {
-    quiet: { avionics: ["GSU 75 ADAHRS", "GIA 63W/64W ×2", "PFD bezel", "MFD bezel"] },
+    quiet: {
+      avionics: [
+        "GSU 75 ADAHRS 1",
+        "GSU 75 ADAHRS 2 (optional)",
+        "GIA 1 (GIA 63W/64W)",
+        "GIA 2 (GIA 63W/64W)",
+        "PFD bezel",
+        "MFD bezel",
+        "Fuel flow transducer",
+        "Tachometer pickup",
+        "Oil temperature sensor",
+        "Oil pressure sensor",
+        "MAT sensor",
+        "MAP sensor",
+        "Engine sensor harness / firewall connector",
+      ],
+    },
   },
   paintSkin,
+  (spec) => !useView.getState().walking && engineHidden(spec, sysNow(), useEngineGroups.getState().shown),
+  ENGINE_GROUPS,
 );
 export const { part, surfacePivot, shell, loftSurface: surface, onSurface: onSurf } = CAT;
 

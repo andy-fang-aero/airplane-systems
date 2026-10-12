@@ -12,9 +12,9 @@ export function Environment() {
   return (
     <>
       <p className="lead">
-        Ram air from a NACA inlet on the right cowl is split: some goes straight to the fresh-air valve, some through a
-        muff around the exhaust muffler to the hot-air valve. The temperature knob blends the two in a mixing chamber on
-        the firewall.
+        A lower RH cowl NACA inlet supplies ventilation air, while a separate heater duct passes air around the exhaust
+        muffler. Hot and fresh inlet valves blend the supplies in a firewall mixing chamber. Its airflow flapper admits
+        the blend through the cabin air coupler to a separate distribution manifold and eleven cabin outlets.
       </p>
       <H3>Climate panel</H3>
       <Ctl>
@@ -105,15 +105,31 @@ export function Environment() {
         />
       </Ctl>
       <Caution title="Smoke & fumes">If the source is forward of the firewall, turn the airflow selector OFF.</Caution>
-      <H3>How air is routed</H3>
+      <H3>Valves, ducts and outlets</H3>
       <Notes
         items={[
-          "Panel and armrest eyeball outlets are always fed; each occupant twists the nozzle to shut it off.",
-          "Floor butterfly opens for Panel-Foot; the windshield butterfly adds defrost for Panel-Foot-Windshield; Windshield alone closes the floor valve for maximum defog.",
-          "A/C (optional): R134a, engine-driven compressor, evaporator under the front passenger seat. Engine must be running; the snowflake closes the hot-air valve.",
-          "A/C and recirculation are unavailable with the fan at 0. Recirculation needs A/C selected and a powered blower; in this model, loss of refrigeration retains the selected valve positions.",
-          "The G6 control panel knob reads OFF – 0 – 1 – 2 – 3: OFF shuts cabin airflow, 0 is ram air only, 1–3 add blower speed (Costanzo deck photo).",
-          "Airflow rates are illustrative. This SR20 model assumes ram air while the engine runs and the fresh-air valve is open; loss of blower power leaves only that airflow. Valve positions retain the selected settings when control power is lost.",
+          "OFF closes the mixing-chamber airflow flapper; 0 opens the ram-air path without the fan. 1–3 add low, medium and high blower speed (POH 7-66). The hot/fresh inlet blend and the manifold floor/defrost butterflies are separate mechanisms.",
+          "Four crew eyeball outlets sit outboard of the displays and inboard on the bolster panels; two passenger eyeball outlets sit chest high in the rear side trim. These branches are fed directly and each occupant can shut the nozzle. Two adjustable crew kick-plate outlets, two fixed passenger foot-warmers and one windshield diffuser complete the eleven outlets (POH 7-65–66; AMM 21-20).",
+          "Panel closes both manifold butterflies. Panel-Foot opens the floor branch; Panel-Foot-Windshield opens floor and defrost; Windshield closes the floor branch for maximum defog (POH 7-66–67). Panel branches have no selector butterfly.",
+          "The ECS display panel and bracket-mounted controller are separate from the cabin air coupler actuator and manifold dual actuator. A mechanical linkage passes through the firewall to the mixing-chamber lever (AMM 21-60 pp. 4–12).",
+          "Hot or fresh air rejected by its inlet valve discharges into the engine compartment and leaves with engine cooling air (POH 7-65). The heater exchanges heat across the exhaust-muffler wall; exhaust gas is not the cabin-air supply.",
+        ]}
+      />
+      <H3>Optional vapor-cycle air conditioning</H3>
+      <Facts
+        rows={[
+          ["Refrigerant path", "Compressor → condenser → receiver-drier → expansion valve → evaporator → compressor"],
+          ["Compressor", "Engine driven at the flywheel belt; electrical clutch"],
+          ["Condenser", "Under baggage floor; separate outside-air blower and belly screens"],
+          ["Evaporator", "Under RH crew seat; blower wheel/motor alongside"],
+          ["Moisture", "Condensate drain overboard through belly"],
+        ]}
+      />
+      <Notes
+        items={[
+          "The compressor pressurizes R134A vapor. The condenser rejects heat and changes it into liquid; the receiver-drier filters it and removes moisture. The expansion valve meters liquid into the evaporator, where vaporization absorbs heat from cabin air (POH 7-66; AMM 21-50 p. 1).",
+          "The engine must run for refrigeration. A/C closes the hot-air supply; recirculation returns cabin air through the evaporator for maximum cooling. Neither mode is available at fan 0, and recirculation requires A/C (POH 7-62, 7-67).",
+          "This study configuration includes the optional blower and A/C hardware; their installation on the photographed reference airplane is unconfirmed. Component sizes, belt geometry, refrigerant hose routes and underfloor locations are schematic. Refrigerant pressures, humidity and charge are not simulated.",
         ]}
       />
       <Facts
@@ -124,6 +140,18 @@ export function Environment() {
           ["A/C compressor", "5 A A/C COMPR, A/C BUS 2"],
         ]}
       />
+      <Small>
+        Sources: SR20 POH 11934-005, 7-62–68 (Revision A1), and SR20 AMM 12137-002 Reissue A/Revision A1, chapters
+        21-00, 21-20, 21-40, 21-50 and 21-60. The AMM identifies the heater-air supply as the upper RH cowl inlet; POH
+        7-65 calls it the NACA inlet. The model follows the AMM routing. POH 7-67 describes fresh-air closure and
+        selectable recirculation at full cool, while AMM 21-60 describes automatic recirculation and a different
+        inlet/flapper rigging check; the controls here follow the POH operating description.
+      </Small>
+      <Small>
+        Airflow and valve-opening fractions are illustrative. Ram air is assumed while the engine runs. Loss of power
+        removes blower/refrigeration, while valve selections remain represented; powered valve travel, automatic
+        temperature thresholds and pressure losses are not modeled.
+      </Small>
     </>
   );
 }
@@ -236,8 +264,8 @@ export function Pitot() {
           ["Pitot heat", "7.5 A, NON ESS BUS"],
           ["Stall warning", "2 A, ESS BUS 2"],
           ["Horn margin", "~5 kt above stall, full flaps, idle, wings level"],
-          ["OAT probes", "Two, under the left wing"],
-          ["Water traps", "At each line low point; drain at annual"],
+          ["OAT probes", "RH wing; second probe with optional ADAHRS 2 (AMM 34-10)"],
+          ["Water traps", "Pitot, static floor and static console; drains per AMM 34-10"],
         ]}
       />
       <Small>
@@ -248,6 +276,15 @@ export function Pitot() {
         Cabin pressure varies with heater and vents. Apply the Section 5 airspeed and altitude corrections. The standby
         altimeter has no automatic position-error correction, so it will differ from the PFD.
       </Caution>
+      <H3>Pressure and signal paths</H3>
+      <Notes
+        items={[
+          "The heated mast near the left wingtip feeds the pitot water trap, then separate pressure branches to each fitted GSU 75 and the MD302. The mast heater and current-sensing circuit are separate from the pressure line (POH 7-69–72; AMM 34-10).",
+          "Both static buttons feed sumps and a crossover tee. The alternate-source valve substitutes cabin pressure before the static branches reach the instruments. Selecting it changes the highlighted source path; calibrated pressure/airspeed errors are not computed.",
+          "Pressure paths remain physically connected when avionics power is lost. Animated particles illustrate connectivity; they do not represent a constant flow of air through the instruments.",
+          "A separate right-wing pneumatic inlet leads through a trap to the stall pressure switch. The electrical signal reaches the warning circuit and avionics; blockage and loss of STALL WARNING power suppress the modeled horn. The angle-of-attack slider is illustrative, not a certified trigger angle.",
+        ]}
+      />
     </>
   );
 }

@@ -165,7 +165,7 @@ export function openWalk(n?: number) {
  * focus and hover included) go back to what they were; only the display toggles when another airplane is now shown.
  */
 export function closeWalk() {
-  if (!useView.getState().walking) return;
+  if (!prior || !useView.getState().walking) return;
   persist();
   useWalk.setState({ since: null });
   const p = prior;
@@ -194,7 +194,7 @@ export function closeWalk() {
 
 // switching to another airplane ends the walk-around
 useView.subscribe((v) => {
-  if (v.walking && v.ac !== "sr22t") closeWalk();
+  if (prior && v.walking && v.ac !== "sr22t") closeWalk();
 });
 
 /** Page load: `?walk=n` opens station n (and leaves the address bar); otherwise unfinished saved progress is offered. */

@@ -1,6 +1,6 @@
 "use client";
 import { useTicker } from "@/components/ui/controls";
-import type { AircraftDef } from "../types";
+import type { AircraftDef, ModelRefs } from "../types";
 import { GROUND_Y, inFus } from "./geometry";
 import { casMessages, live } from "./model";
 import { Model } from "./Airplane";
@@ -9,13 +9,25 @@ import { CAT } from "./parts";
 import { Caps } from "./panels/caps";
 import { Electrical } from "./panels/electrical";
 import { Controls, Flaps, Gear } from "./panels/flight";
-import { Airframe, Avionics, Cabin, Lighting, Overview } from "./panels/general";
+import { Airframe, Avionics, Cabin, Doors, Lighting, Overview } from "./panels/general";
 import { Engine, Fuel, Propeller } from "./panels/powerplant";
 import { Environment, Pitot } from "./panels/air";
 import { resetCaps, useSR20 } from "./store";
 import { CAPS_CAM, SYS } from "./systems";
 import { simTick } from "./tick";
 import { useView } from "@/lib/view";
+import { WalkPanel } from "./panels/walkaround";
+import { WalkMarker } from "./WalkMarker";
+import { bootWalk, closeWalk, openWalk } from "./walk-store";
+
+function Overlay(refs: ModelRefs) {
+  return (
+    <>
+      <Parachute {...refs} />
+      <WalkMarker />
+    </>
+  );
+}
 
 /** CAPS timeline readout in the viewport while the CAPS view is open. */
 function CapsHud() {
@@ -50,13 +62,14 @@ export const SR20: AircraftDef = {
   groundY: GROUND_Y,
   pivotX: 1,
   Model,
-  Overlay: Parachute,
+  Overlay,
   panels: {
     overview: Overview,
     airframe: Airframe,
     controls: Controls,
     flaps: Flaps,
     gear: Gear,
+    doors: Doors,
     engine: Engine,
     propeller: Propeller,
     fuel: Fuel,
@@ -77,4 +90,5 @@ export const SR20: AircraftDef = {
   },
   labels: { cat: CAT, inside: inFus },
   resetCam: () => (useSR20.getState().s.capsOn ? CAPS_CAM : null),
+  walk: { Panel: WalkPanel, open: () => openWalk(), close: closeWalk, boot: bootWalk },
 };

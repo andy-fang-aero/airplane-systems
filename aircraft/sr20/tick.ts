@@ -3,7 +3,7 @@
  * Writes continuous values to `live`; only discrete changes go through the store.
  */
 import { clamp, lerp } from "@/lib/math";
-import { fuelAvail, live } from "./model";
+import { fuelAvail, inductionAvailable, live } from "./model";
 import { useSR20 } from "./store";
 
 export function simTick(dt: number) {
@@ -15,7 +15,7 @@ export function simTick(dt: number) {
     live.startTimer -= dt;
     if (E.starterPwr && !g.running) {
       live.crankT += dt;
-      if (live.crankT > 1.3 && fuelAvail(s) && g.mix > 0.05)
+      if (live.crankT > 1.3 && fuelAvail(s) && inductionAvailable(s) && g.mix > 0.05)
         update((d) => {
           d.eng.running = true;
         });
@@ -32,7 +32,8 @@ export function simTick(dt: number) {
     update((d) => {
       d.eng.running = false;
     });
-  if (cur.eng.running && !fuelAvail(cur)) {
+  // Delay illustrates loss of supply; it is not a measured aircraft flameout time.
+  if (cur.eng.running && (!fuelAvail(cur) || !inductionAvailable(cur))) {
     live.starve += dt;
     if (live.starve > 3) {
       live.starve = 0;

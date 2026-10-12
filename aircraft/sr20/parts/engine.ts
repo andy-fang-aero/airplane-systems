@@ -1,15 +1,11 @@
-/**
- * Propeller and engine (IO-390): cylinders, plugs, magnetos, governor, oil, induction, exhaust and heat muff, alternators,
- * starter.
- */
+/** SR20 G6 IO-390-C3B6 core. POH 11934-005 7-33–7-40; AMM 12137-002 71-00, 61-10. Geometry approximate. */
 import * as THREE from "three";
-import type { Vec3 } from "@/lib/math";
-import { magAnim, plugAnim, sparkPhase } from "@/lib/anims";
-import { box, cyl } from "../geometry";
-import { part, fires, altAnim, altDoorAnim } from "./catalogue";
+import { box, cyl, mergeGeos } from "@/lib/geometry";
+import { CRANK_Y, CYLS, PROP } from "../engine-anchors";
+import { altAnim, part } from "./catalogue";
 
-/* ---------- propeller (74 in., 3 blade) ---------- */
-export const PROP: Vec3 = [3.8, -0.14, 0];
+export { CYLS, PROP, MUFFLER, OIL_FILTER } from "../engine-anchors";
+
 const bladeGeo = () => {
   const sh = new THREE.Shape();
   sh.moveTo(-0.06, 0.12);
@@ -27,156 +23,101 @@ for (let i = 0; i < 3; i++)
     parent: "blade:" + i,
     color: "#3A4148",
     name: "Propeller blade",
-    note: "Hartzell three-blade, 74 in. constant-speed. Metal standard, composite optional.",
+    note: "Hartzell three-blade constant-speed, non-feathering propeller. Standard HC-E3YR-1RF/F7392S-1 metal propeller: 74 in. nominal diameter; composite option 3C1-R919A1/76C03-2 (POH 2-8, 7-40; AMM 61-00 p. 1). Shape approximate.",
     ext: true,
+    groups: [],
   });
-
-/* ---------- engine (IO-390, ~0.87 m wide, inside the cowl) ---------- */
-const EY = -0.16;
-part(() => box(0.78, 0.26, 0.26), ["engine"], {
-  pos: [3.14, EY, 0],
-  name: "Lycoming IO-390-C3B6",
-  note: "Four-cylinder, horizontally opposed, fuel-injected. 215 hp at 2,700 RPM; 2,200 hr TBO.",
+part(() => cyl(0.09, 0.17, "x"), ["propeller", "engine"], {
+  pos: PROP,
+  color: "#8C969E",
+  name: "Propeller hub / pitch piston",
+  ext: true,
+  note: "The hub supports three blades and contains a hydraulic pitch-change piston, rod and fork. Governor oil drives high pitch; the spring and centrifugal twisting moment drive low pitch as oil drains (AMM 61-10 p. 1). Simplified external envelope; this does not depict measured internal hardware.",
   pin: true,
+  groups: ["oil"],
 });
-part(() => box(0.55, 0.12, 0.26), ["engine"], {
-  pos: [3.08, -0.38, 0],
-  name: "Oil sump",
-  note: "Wet sump, 7 quart capacity. Filler cap/dipstick at right rear via cowl door.",
+part(() => box(0.78, 0.26, 0.26), ["engine"], {
+  pos: [3.14, -0.16, 0],
+  name: "Lycoming IO-390-C3B6",
+  note: "Normally aspirated, four-cylinder horizontally opposed, air-cooled, wet-sump, continuous-flow fuel injection. 215 hp at 2,700 RPM; published 2,200-hour TBO may be eligible for extension under Lycoming SI 1009 (POH 7-33; AMM 71-00 p. 1). Installation geometry approximate.",
+  pin: true,
+  groups: [],
 });
-export const CYLS = [
-  { n: 1, x: 3.36, s: 1 },
-  { n: 2, x: 3.22, s: -1 },
-  { n: 3, x: 2.99, s: 1 },
-  { n: 4, x: 2.85, s: -1 },
-];
+part(() => box(0.105, 0.255, 0.28), ["engine"], {
+  pos: [2.785, -0.16, 0],
+  color: "#646E75",
+  name: "Rear accessory housing",
+  note: "Engine-driven magnetos and the oil-system and fuel-system accessories are shown at the rear of the IO-390 installation (AMM Fig 71-00-1, 74-00 p. 1, 79-00 p. 1). Housing and mounting positions approximate.",
+  groups: [],
+});
+part(() => cyl(0.052, 0.22, "x"), ["engine", "propeller"], {
+  pos: [3.61, CRANK_Y, 0],
+  color: "#68757D",
+  name: "Crankshaft / propeller flange",
+  note: "The engine drives the propeller directly; the governor controls blade angle rather than a gearbox ratio (Lycoming IOM-IO-390-C Jan 2017 System Description p. 1; POH 7-40). Representative crankshaft nose and flange, dimensions approximate.",
+  groups: [],
+});
 CYLS.forEach((c) => {
   const parent = "cyl:" + c.n;
   part(() => cyl(0.085, 0.2, "z", 18), ["engine"], {
     parent,
     color: "#7C858C",
     name: "Cylinder " + c.n,
-    note: (c.s > 0 ? "Right" : "Left") + " bank. Cooling fins; baffled ram-air cooling (no cowl flaps).",
+    note:
+      (c.s > 0 ? "Right" : "Left") +
+      " bank of the four-cylinder IO-390. Fins transfer heat to the baffled airflow; no movable cowl flaps (POH 7-40). Schematic fin and cylinder dimensions.",
+    groups: [],
   });
   for (let k = -2; k <= 2; k++)
-    part(() => cyl(0.1, 0.01, "z", 18), ["engine"], { parent, pos: [0, 0, k * 0.035], color: "#8C959C" });
+    part(() => cyl(0.1, 0.01, "z", 18), ["engine"], {
+      parent,
+      pos: [0, 0, k * 0.035],
+      color: "#8C959C",
+      groups: [],
+    });
   part(() => box(0.19, 0.19, 0.07), ["engine"], {
     parent,
     pos: [0, 0, c.s * 0.13],
     color: "#6A737A",
     name: "Cylinder head " + c.n,
-    note: "Two spark plugs, CHT probe; EGT probe in the exhaust.",
+    note: "Two spark plugs per head, one CHT sensor, individual intake and exhaust ports (POH 7-37–7-40). Shape approximate.",
+    groups: [],
   });
-  (
-    [
-      ["U", 0.065],
-      ["L", -0.065],
-    ] as const
-  ).forEach(([pos, dy]) => {
-    const mag = c.s > 0 === (pos === "L") ? "R" : "L";
-    part(() => cyl(0.017, 0.06, "x", 10), ["engine"], {
+  part(() => box(0.155, 0.145, 0.022), ["engine"], {
+    parent,
+    pos: [0, 0, c.s * 0.174],
+    color: "#596970",
+    name: "Rocker cover — cyl " + c.n,
+    note: "Representative outer cover of the cylinder valve gear (Lycoming IOM-IO-390-C Jan 2017 System Description p. 1, Fig 2). Shape and placement approximate.",
+    groups: [],
+  });
+  part(
+    () => mergeGeos([-1, 1].map((side) => cyl(0.009, 0.18, "z").translate(side * 0.053, -0.078, -c.s * 0.023))),
+    ["engine"],
+    {
       parent,
-      pos: [-0.12, dy, c.s * 0.13],
-      color: "#DADFE2",
-      anim: plugAnim(fires(mag), sparkPhase(`${c.n}${pos}`)),
-      name: `Spark plug — cyl ${c.n} ${pos === "U" ? "upper" : "lower"}`,
-      note: `Fired by the ${mag === "R" ? "right" : "left"} magneto.`,
-    });
-  });
-});
-part(() => cyl(0.05, 0.13, "x"), ["engine"], {
-  pos: [2.72, -0.04, 0.11],
-  color: "#3E4A52",
-  anim: magAnim(fires("R")),
-  name: "Right magneto",
-  note: "Fires lower-right and upper-left plugs. Also the tachometer's RPM pickup.",
-  pin: true,
-});
-part(() => cyl(0.05, 0.13, "x"), ["engine"], {
-  pos: [2.72, -0.04, -0.11],
-  color: "#3E4A52",
-  anim: magAnim(fires("L")),
-  name: "Left magneto",
-  note: "Fires lower-left and upper-right plugs.",
-  pin: true,
-});
-part(() => box(0.1, 0.09, 0.12), ["engine", "propeller"], {
-  pos: [3.55, -0.06, 0],
-  color: "#C0602F",
-  name: "Propeller governor",
-  note: "Flyweights sense RPM; a cable from the power lever sets the target. Boosts engine oil pressure to move blade pitch.",
-  pin: true,
-});
-part(() => box(0.08, 0.16, 0.12), ["engine"], {
-  pos: [3.36, -0.1, -0.35],
-  color: "#9A6A48",
-  name: "Oil cooler",
-  note: "Remote-mounted. Valve bypasses it below 170 °F or above an 18 psi pressure drop.",
-});
-part(() => box(0.1, 0.12, 0.14), ["engine"], {
-  pos: [3.58, -0.15, 0.2],
-  color: "#C9B98F",
-  name: "Induction air filter",
-  note: "Paper filter screen just inside the right cowl inlet. (Costanzo deck)",
-  pin: true,
-});
-export const OIL_FILTER: Vec3 = [2.83, -0.02, 0.21];
-part(() => cyl(0.045, 0.11, "x"), ["engine"], {
-  pos: OIL_FILTER,
-  color: "#1F3A5A",
-  name: "Oil filter (full-flow)",
-  note: "Spin-on filter at the accessory case, next to the magnetos. (Costanzo deck) Case dimensions and mounting coordinates are approximate.",
-  pin: true,
-});
-// under the front of the engine, just forward of the oil sump (x ≤ 3.355) and above the cowl bottom; clear of ALT 1 / ALT 2 (|z| ≥ 0.15)
-part(() => cyl(0.055, 0.14, "x"), ["engine", "fuel"], {
-  pos: [3.43, -0.435, 0],
-  color: "#7E8A93",
-  name: "Throttle body / fuel servo",
-  note: "The power lever's cable works the air throttle body on the fuel servo: its butterfly meters air, and the servo meters fuel in proportion to airflow and mixture (POH 7-36). The MAP sensor is on the bottom of the induction air manifold near the throttle body (POH 7-41). The POH doesn't locate the servo: shown under the front of the engine (approximate).",
-  pin: true,
-});
-part(() => box(0.03, 0.08, 0.1), ["engine"], {
-  pos: [3.514, -0.15, 0.2],
-  color: "#E0B040",
-  anim: altDoorAnim(3.514),
-  name: "Alternate air door",
-  note: "On the engine induction air manifold (POH Section 7, Alternate Air Control); shown on its face just aft of the filter, above ALT 1 — the exact position is approximate. The ALT AIR – PULL knob opens it: bypasses the filter with warm, unfiltered air.",
-});
-/** Representative exhaust assembly, outboard of the sump; exact mounting coordinates are not documented. */
-export const MUFFLER: Vec3 = [3.04, -0.44, 0.285];
-part(() => cyl(0.06, 0.28, "z"), ["engine", "environment"], {
-  pos: MUFFLER,
-  color: "#8A5A3C",
-  name: "Muffler",
-  note: "Single muffler; exhaust exits through the lower cowl. Placed on the right with the heat muff and mixing chamber per the POH environmental section and the Costanzo deck photo (the POH engine paragraph says left). Size and mounting coordinates are approximate.",
-});
-part(() => cyl(0.08, 0.2, "z"), ["environment", "engine"], {
-  pos: MUFFLER,
-  color: "#E0522B",
-  fairing: true,
-  name: "Heat exchanger (muff)",
-  note: "Shroud around the muffler; heats ram air for the cabin.",
+      color: "#B0B6B7",
+      name: "Pushrod housings — cyl " + c.n,
+      note: "Representative paired pushrod housings below the cylinder, connecting crankcase valve gear to the head (Lycoming IOM-IO-390-C Jan 2017 System Description p. 1, Fig 2; MM-IO-390-C 72-30). Dimensions and routing approximate.",
+      groups: [],
+    },
+  );
 });
 part(() => cyl(0.07, 0.12, "x"), ["electrical", "engine"], {
   pos: [3.5, -0.3, 0.22],
   color: "#D9960F",
   anim: altAnim("alt1"),
   name: "ALT 1 — 100 A",
-  note: "Belt-driven, right front. Regulated to 27.7 V. Feeds Main Distribution Bus 1.",
+  note: "Belt-driven, right front. Regulated to 27.7 V. Feeds Main Distribution Bus 1 (POH 7-48–7-49). Geometry approximate.",
   pin: true,
+  groups: [],
 });
 part(() => cyl(0.06, 0.11, "x"), ["electrical", "engine"], {
   pos: [3.5, -0.3, -0.22],
   color: "#D9960F",
   anim: altAnim("alt2"),
   name: "ALT 2 — 70 A",
-  note: "Belt-driven, left front. Regulated to 28.7 V, so it carries the loads it shares with ALT 1.",
+  note: "Belt-driven, left front. Regulated to 28.7 V, so it carries the loads shared with ALT 1 (POH 7-48–7-49). Geometry approximate.",
   pin: true,
-});
-part(() => box(0.1, 0.12, 0.14), ["engine"], {
-  pos: [2.74, -0.24, 0],
-  color: "#4B5860",
-  name: "Starter / SlickSTART",
-  note: "START energizes the starter and SlickSTART booster (retards timing, hotter spark). Spring-returns to BOTH.",
+  groups: [],
 });

@@ -123,7 +123,8 @@ const wickNote =
     note: wickNote,
     ext: true,
   });
-  onSurf("elev" + side, V(sLE(1.9) - 0.25 * sC(1.9), SY, s * 1.9), () => box(0.05, 0.03, 0.12), {
+  // Small schematic mass at the full-chord horn root, inside its thin rounded skin.
+  onSurf("elev" + side, V(sLE(1.855) - 0.25 * sC(1.855), SY, s * 1.855), () => box(0.03, 0.012, 0.024), {
     color: "#6E7A84",
     name: "Elevator horn balance + weight",
     pin: s > 0,
@@ -191,9 +192,15 @@ onSurf(
     ext: true,
   },
 );
-onSurf("rudder", V(fLE(finHeight(1.46)) - 0.3 * fC(finHeight(1.46)), finHeight(1.46), 0), () => box(0.06, 0.04, 0.03), {
-  color: "#6E7A84",
-  name: "Rudder horn balance + weight",
-  note: "Top of the rudder extends forward of the hinge with a balance weight — reduces pedal force and flutter risk. (Costanzo deck)",
-  pin: true,
-});
+// The horn narrows sharply toward the rounded tip; fit the internal mass at its root.
+onSurf(
+  "rudder",
+  V(fLE(finHeight(1.43)) - 0.32 * fC(finHeight(1.43)), finHeight(1.43), 0),
+  () => box(0.03, 0.022, 0.012),
+  {
+    color: "#6E7A84",
+    name: "Rudder horn balance + weight",
+    note: "Top of the rudder extends forward of the hinge with a balance weight — reduces pedal force and flutter risk. (Costanzo deck)",
+    pin: true,
+  },
+);

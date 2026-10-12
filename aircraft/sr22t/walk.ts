@@ -134,10 +134,12 @@ export function stepParts(step: Step) {
   };
 }
 
-/** Centroid of the step's modelled parts on its side, or null when it has none. */
+/** The explicit target's centre, otherwise the highlighted parts' centroid on the step's side; null without parts. */
 export function stepCentroid(step: Step): THREE.Vector3 | null {
+  if (Array.isArray(step.item.target)) return V(...step.item.target);
   const side = stepSide(step);
-  const pts = stepParts(step).shown.flatMap((n) => nameCentres(n, side));
+  const names = step.item.target ? [step.item.target] : stepParts(step).shown;
+  const pts = names.flatMap((n) => nameCentres(n, side));
   if (!pts.length) return null;
   return pts.reduce((a, b) => a.add(b), V(0, 0, 0)).multiplyScalar(1 / pts.length);
 }

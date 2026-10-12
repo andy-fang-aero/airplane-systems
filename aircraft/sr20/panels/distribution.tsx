@@ -6,13 +6,15 @@ const V = (v: number) => (v > 0 ? v.toFixed(1) + " V" : "0 V");
 const amp = (a: number) => (a > 0 ? "+" : "") + a + " A";
 
 /**
- * Live single-line diagram after POH Figure 7-10 (Electrical System Schematic, POH 7-50) and its description (7-49 – 7-53).
+ * Live single-line diagram after POH Figure 7-10 (Electrical System Schematic, POH 7-50) and its description (7-49 – 7-56).
  * In the MCU: ALT 1 and BAT 1 feed Main Dist Bus 1, ALT 2 feeds Main Dist Bus 2, and MDB 1 backs MDB 2 up through the 80 A
  * fuse and a diode (never the reverse). The Ess Dist Bus takes three diode feeds: MDB 1, BAT 1 straight from its relay
  * (ahead of the 125 A fuse; drawn hopping the interconnect, as the figure crosses them) and MDB 2. On the breaker panel,
  * ESS BUS 2 hangs straight off the Ess Dist Bus and ESS BUS 1 through the ESSENTIAL POWER breaker; BAT 2 joins ESS BUS 1
  * through its relay (BAT 2 switch) and the BAT 2 breaker, and BAT 1 feeds the CONV BUS directly through a 5 A fuse.
  * Main and A/C buses are grouped by the distribution bus that feeds them (each through its own 30 A fuse).
+ * POH 7-51 text gives an 80 A ALT 2 source fuse, while Fig 7-10 and AMM 24-30 p. 1 give 60 A; panel notes preserve
+ * this disagreement. BAT 1 main feed is 125 A in the figure. The simplified diagram leaves both source fuses out.
  * Simplified: the ALT switches are drawn in the alternator output (they switch the field relay), the other MCU fuses are
  * not drawn, and external power and the starter (not modelled) are left out. viewBox 340 wide like the Cessna diagram.
  */
@@ -41,6 +43,12 @@ export function PowerDiagram({ s, E }: { s: Sim; E: Elec }) {
       role="img"
       aria-label="SR20 power distribution single-line diagram after POH Figure 7-10"
     >
+      <desc>
+        Main distribution 1 can supply main distribution 2 through an 80 amp fuse and diode. ALT 2 cannot supply main
+        distribution 1. BAT 2 supplies the essential buses through its breaker and ESSENTIAL POWER. The master
+        alternator switches control field circuits; the symbols here summarize that control. External power and the
+        starter contactor are represented in the 3D hardware.
+      </desc>
       {/* sources */}
       <Box x={6} y={6} w={58} label="ALT 1" value={E.alt1 ? amp(E.a1) : e.fail.alt1 ? "failed" : "off"} lit={E.alt1} />
       <Box x={72} y={6} w={58} label="BAT 1" value={bat1Word} lit={bat1Charged} />
