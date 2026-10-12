@@ -40,6 +40,11 @@ jobs:
           TRUSTED_WORKFLOW_REF: ${{ github.workflow_ref }}
           TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: node .github/trusted-preview/controller.mjs prepare
+      # GitHub owns this step metadata; a custom check's suite/URL does not prove
+      # which workflow created it. Only the validated prepare output supplies it.
+      - name: SHA endorsement ${{ steps.prepare.outputs.endorsement }}
+        if: ${{ steps.prepare.outputs.endorsement != '' }}
+        run: ":"
   approve:
     if: ${{ needs.prepare.result == 'success' && needs.prepare.outputs.candidates != '[]' }}
     needs: prepare
