@@ -46,3 +46,43 @@ it("expanded bounds retain the exact segment-end tolerance without extending it"
   expect(edgeCrossing([source], [face(1 + 0.5e-9)])).toBeDefined();
   expect(edgeCrossing([source], [face(1 + 2e-9)])).toBeUndefined();
 });
+
+it("classifies interior points whose exit ray runs through a shared triangle edge", () => {
+  const outer = mesh(2, 2, 2),
+    bounds = new THREE.Box3().setFromPoints(outer.flat());
+  const direction = new THREE.Vector3(0.31, 0.83, 0.47).normalize();
+  for (const face of [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)]) {
+    for (const distance of [0.01, 0.05, 0.2, 0.5, 0.9]) {
+      const p = face.clone().addScaledVector(direction, -distance);
+      expect(inside(p, outer, bounds), p.toArray().join()).toBe(true);
+    }
+  }
+});
+
+it("detects a closed tetrahedron wholly enclosed without any surface crossings", () => {
+  const outer = mesh(2, 2, 2),
+    bounds = new THREE.Box3().setFromPoints(outer.flat());
+  const [a, b, c, d] = [
+    [0.9969091047313142, -0.008275622816158767, -0.00468619605252364],
+    [0.984545523656571, -0.04137811408079384, -0.0234309802626182],
+    [-0.00618179053737161, 0.9834487543676824, -0.00937239210504728],
+    [-0.015454476343429025, -0.04137811408079384, 0.9765690197373817],
+  ].map((p) => new THREE.Vector3(...p));
+  const inner: Tri[] = [
+    [a, b, c],
+    [a, d, b],
+    [a, c, d],
+    [b, d, c],
+  ];
+  expect(
+    Math.abs(
+      b
+        .clone()
+        .sub(a)
+        .dot(c.clone().sub(a).cross(d.clone().sub(a))),
+    ) / 6,
+  ).toBeGreaterThan(0.01);
+  expect(edgeCrossing(inner, outer)).toBeUndefined();
+  expect(edgeCrossing(outer, inner)).toBeUndefined();
+  for (const point of [a, b, c, d]) expect(inside(point, outer, bounds)).toBe(true);
+});

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { insideSolid } from "./winding-number";
 
 export type Tri = [THREE.Vector3, THREE.Vector3, THREE.Vector3];
 
@@ -46,11 +47,16 @@ export const inside = (p: THREE.Vector3, mesh: Tri[], box: THREE.Box3) => {
     if (Math.abs(det) < 1e-12) continue;
     s.subVectors(p, a);
     const u = s.dot(h) / det;
-    if (u < 0 || u > 1) continue;
+    const edgeTolerance = 1e-10;
+    if (u < -edgeTolerance || u > 1 + edgeTolerance) continue;
     q.crossVectors(s, e1);
     const v = DIR.dot(q) / det;
-    if (v < 0 || u + v > 1) continue;
-    if (e2.dot(q) / det > 1e-9) n++;
+    if (v < -edgeTolerance || u + v > 1 + edgeTolerance) continue;
+    if (e2.dot(q) / det <= 1e-9) continue;
+    // A ray on a shared edge/vertex can count the same crossing twice (or miss it through rounding).
+    // Winding number resolves these ambiguous rays, including tangencies, without changing the fast BVH path.
+    if (u <= edgeTolerance || v <= edgeTolerance || 1 - u - v <= edgeTolerance) return insideSolid(p, mesh);
+    n++;
   }
   return n % 2 === 1;
 };

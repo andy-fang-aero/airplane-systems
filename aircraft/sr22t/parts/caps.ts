@@ -129,7 +129,11 @@ const IGNITER_SIZE: Vec3 = [0.035, 0.03, 0.03];
 export const CAPS_CABLE: Vec3[] = [
   CAPS_HANDLE_ATTACH,
   [CAPS_HANDLE_ATTACH[0], 0.7, CAPS_HANDLE_ATTACH[2]],
-  [0.85, 0.685, -0.06],
+  // Over the shoulder-line handle the run turns outboard of the overhead console and cabin speaker, then
+  // follows the roof aft at z −0.12; bends approximate (AMM Fig 95-00-1 is undimensioned).
+  [CAPS_HANDLE_ATTACH[0] - 0.05, 0.698, -0.12],
+  [1.0, 0.698, -0.12],
+  [0.85, 0.685, -0.12],
   [0.82, 0.59, -0.12],
   [0.75, 0.58, -0.12],
   [0.4, 0.58, -0.12],
