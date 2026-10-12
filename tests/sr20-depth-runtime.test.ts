@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { inductionAvailable, initialSim, live, solve, type Sim } from "@/aircraft/sr20/model";
 import { useSR20 } from "@/aircraft/sr20/store";
 import { simTick } from "@/aircraft/sr20/tick";
+import { flowRates } from "@/aircraft/sr20/flows";
 import { patched, type Patch } from "./helpers";
 
 const set = (p: Patch<Sim> = {}) => {
@@ -24,6 +25,35 @@ beforeEach(() => {
 afterEach(() => {
   useSR20.setState({ s: kept.s, E: kept.E });
   Object.assign(live, keptLive);
+});
+
+describe("IO-390 engine-driven fuel during cranking (POH 7-42–7-43; AMM 28-20)", () => {
+  const enginePath = ["fuelMain", "engineFuel", "meteredFuel", "dividerFeed", "inj1", "inj2", "inj3", "inj4"];
+  it.each(["L", "R"] as const)("connects the selected %s tank to every injector during START without boost", (sel) => {
+    set({ eng: { running: false, key: "START" }, fuel: { sel, boost: false } });
+    live.rpm = 0;
+    const { s, E } = state();
+    expect(E.starterPwr).toBe(true);
+    expect(E.boostPwr && s.fuel.boost).toBe(false);
+    const rates = flowRates(s, E);
+    for (const key of [`fuelTank${sel}`, `fuelTank${sel}2`, `fuel${sel}`, ...enginePath])
+      expect(rates[key], key).toBeGreaterThan(0);
+    const other = sel === "L" ? "R" : "L";
+    for (const key of [`fuelTank${other}`, `fuelTank${other}2`, `fuel${other}`]) expect(rates[key], key).toBe(0);
+  });
+
+  const unavailable: [string, Patch<Sim>][] = [
+    ["unpowered starter", { elec: { bat1: false } }],
+    ["closed selector", { fuel: { sel: "OFF" } }],
+    ["empty selected tank", { fuel: { qL: 0 } }],
+  ];
+  it.each(unavailable)("keeps both halves stopped with an %s", (_, patch) => {
+    const starting = patched(initialSim, { eng: { running: false, key: "START" }, fuel: { sel: "L", boost: false } });
+    const s = patched(starting, patch);
+    live.rpm = 0;
+    const rates = flowRates(s, solve(s));
+    for (const key of ["fuelTankL", "fuelTankL2", "fuelL", "fuelR", ...enginePath]) expect(rates[key], key).toBe(0);
+  });
 });
 
 describe("SR20 optional ADAHRS is separate from standby and display power", () => {

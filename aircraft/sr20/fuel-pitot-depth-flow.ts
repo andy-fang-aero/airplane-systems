@@ -278,7 +278,7 @@ export const isOptionalPitotFlow = (key: string) => ["pitotAdahrs2", "staticAdah
 /** Pressure branches remain available with electronics off; only optional installation controls branch visibility. */
 export function fuelPitotDepthRates(s: Sim, E: Elec): Record<string, number> {
   const R: Record<string, number> = {},
-    feed = s.eng.running || (s.fuel.boost && E.boostPwr),
+    feed = s.eng.running || (s.eng.key === "START" && E.starterPwr) || (s.fuel.boost && E.boostPwr),
     ok = fuelAvail(s);
   for (const side of ["L", "R"] as const) {
     const selected = feed && ok && s.fuel.sel === side;

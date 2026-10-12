@@ -38,7 +38,10 @@ export function simAt(prior: Sim, steps: Step[], at: number): Sim {
 /** Flaps remain physically extended after BAT 1/2 OFF, since the unpowered motor cannot retract them. */
 export const flapsAt = (prior: Sim, steps: Step[], at: number, animate = false) =>
   simAt(prior, steps, animate ? at - 1 : at).flaps.cmd * 0.32;
-export const stepSide = (step: Step): Side => (step.station.side === "L" ? -1 : step.station.side === "R" ? 1 : 0);
+export const stepSide = ({ station, item }: Step): Side => {
+  const side = item.side ?? station.side;
+  return side === "L" ? -1 : side === "R" ? 1 : 0;
+};
 export const inCatalogue = (name: string) =>
   CAT.parts.some((p) => p.name === name) ||
   CAT.surfaces.some((p) => p.name === name) ||

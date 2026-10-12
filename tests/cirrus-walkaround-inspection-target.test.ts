@@ -3,6 +3,7 @@ import { Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { CAT as sr20Cat } from "@/aircraft/sr20/parts";
 import { FUSE, FW, WTIP, wC, wLE, wingP } from "@/aircraft/sr20/geometry";
+import { CROUCH_Y } from "@/aircraft/sr20/walkaround";
 import { COWL_INLETS } from "@/aircraft/cowl-inlets";
 import { initialSim as sr20Initial, solve as sr20Solve } from "@/aircraft/sr20/model";
 import * as sr20Walk from "@/aircraft/sr20/walk";
@@ -20,6 +21,24 @@ beforeAll(() => {
   sr20Walk.underAirplane(new Vector3());
   sr22tWalk.underAirplane(new Vector3());
 }, 120_000);
+
+it("the left-fuselage transponder check highlights and frames the unique right-offset belly antenna", () => {
+  const step = sr20Walk.walkSteps().find((step) => step.item.id === "2c")!;
+  const antenna = sr20Cat.parts.find((part) => part.name === "Transponder antenna")!;
+  const centre = partCentre(antenna, specGeo(antenna));
+  expect(step.station.side).toBe("L");
+  expect(centre.z).toBeGreaterThan(0.05);
+  const side = sr20Walk.stepSide(step);
+  const spot = { names: sr20Walk.stepParts(step).shown, side };
+  expect(spotsPart(spot, antenna, specGeo(antenna), sr20Cat)).toBe(true);
+  expect(sr20Walk.stepCentroid(step)!.distanceTo(centre)).toBeLessThan(1e-9);
+  const pose = sr20Walk.stepPose(step);
+  expect(new Vector3(...pose.t).distanceTo(centre)).toBeLessThan(1e-9);
+  expect(pose.p[1]).toBe(CROUCH_Y);
+  // Ordinary paired checks still inherit their station's side.
+  expect(sr20Walk.stepSide(sr20Walk.walkSteps().find((step) => step.item.id === "2g")!)).toBe(-1);
+  expect(sr20Walk.stepSide(sr20Walk.walkSteps().find((step) => step.item.id === "4a")!)).toBe(1);
+});
 
 describe("pitot heat probe verification points to the tube while retaining the cockpit switch", () => {
   for (const { name, cat, onId, offId, read } of [

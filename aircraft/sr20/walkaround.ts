@@ -19,6 +19,8 @@ export interface WalkItem {
   parts: string[];
   /** Part name or point anchoring the label and camera instead of averaging the highlighted parts. */
   target?: string | Vec3;
+  /** Inspection side override for unique belly hardware reached from either fuselage side. */
+  side?: "L" | "R" | "any";
   system: SysId;
   ref: string;
   why?: string;
@@ -189,6 +191,7 @@ export const WALK: WalkStation[] = [
       item("2a", "Door Lock", "UNLOCK", ["Cabin door key lock"], "cabin"),
       item("2b", "COM 1 Antenna (top)", "CONDITION AND ATTACHMENT", ["COM 1 antenna"], "avionics"),
       item("2c", "Transponder Antenna (underside)", "CONDITION AND ATTACHMENT", ["Transponder antenna"], "avionics", {
+        side: "any",
         crouch: true,
       }),
       item("2d", "COM 2 Antenna (underside)", "CONDITION AND ATTACHMENT", ["COM 2 antenna"], "avionics", {
