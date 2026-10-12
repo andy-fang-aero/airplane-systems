@@ -15,7 +15,7 @@ import { Links } from "@/components/scene/Links";
 import { Tanks } from "@/components/scene/Tanks";
 import { Part, Shell, specGeo } from "@/components/scene/Part";
 import type { PartSpec } from "@/lib/catalogue";
-import { ghostMat, mats, plateMat, seeMat, shellMat } from "@/lib/materials";
+import { dimSolidMat, ghostMat, mats, plateMat, seeMat, shellMat, skinMat } from "@/lib/materials";
 import { partSide, SPOT_COLOR, type Spot } from "@/lib/spot";
 import { sysColor, type Chan, type SysId } from "@/lib/systems";
 import { useView } from "@/lib/view";
@@ -61,8 +61,9 @@ function drawPart(spec: PartSpec) {
   frame.cbs.forEach((cb) => cb({ clock: { elapsedTime: 0 } }));
   return { material: el.props.material, active: frame.seen[0].active };
 }
-const surface = (name: string) => {
-  const spec = CAT.surfaces.find((s) => s.name === name)!;
+const surface = (name: string, skin?: () => THREE.Texture) => {
+  const found = CAT.surfaces.find((s) => s.name === name)!;
+  const spec = skin ? { ...found, skin } : found;
   const el = ControlSurface({ spec, cat: CAT, angle: () => 0 }) as El;
   return ((el.props.children as El[])[0] as El).props.material;
 };
@@ -105,6 +106,50 @@ describe("a spotted item dims everything else (7e: right main wheel, gear system
   it("dims the other side's instance of the spotted name", () => {
     walkView("gear", spot);
     expect(drawPart(left)).toEqual({ material: mats(colorOf(left)).dim, active: false });
+  });
+
+  it("keeps the spotlight when X-ray is switched off, with an opaque dim backdrop", () => {
+    walkView("gear", spot);
+    useView.setState({ xray: false });
+    const normal = mats(left.solidColor || colorOf(left)).on;
+    expect(drawPart(right)).toEqual({ material: mats(SPOT_COLOR).hi, active: true });
+    expect(drawPart(left)).toEqual({ material: dimSolidMat(normal), active: false });
+    expect(dimSolidMat(normal).transparent).toBe(false);
+    expect(dimSolidMat(normal).depthWrite).toBe(true);
+    expect(dimSolidMat(normal).color.r).toBeCloseTo(normal.color.r * 0.25);
+    useView.setState({ spot: null });
+    expect(drawPart(left)).toEqual({ material: normal, active: true });
+  });
+
+  it("keeps solid control-surface highlights and restores the original painted material on exit", () => {
+    const skin = () => new THREE.Texture();
+    walkView("controls", { names: ["Right aileron"], side: 1 });
+    useView.setState({ xray: false });
+    expect(surface("Right aileron", skin)).toBe(mats(SPOT_COLOR).hi);
+    const dim = surface("Left aileron", skin) as THREE.MeshStandardMaterial;
+    expect(dim).toBe(dimSolidMat(skinMat(skin)));
+    expect(dim.map).toBe(skinMat(skin).map);
+    expect(dim.transparent).toBe(false);
+    expect(dim.depthWrite).toBe(true);
+    useView.setState({ spot: null });
+    expect(surface("Right aileron", skin)).toBe(skinMat(skin));
+    expect(surface("Left aileron", skin)).toBe(skinMat(skin));
+  });
+
+  it("keeps only the spotted side's shells highlighted in solid mode", () => {
+    const skin = () => new THREE.Texture();
+    walkView("overview", { names: ["Wing trailing edge"], side: 1 });
+    useView.setState({ xray: false });
+    const edges = CAT.shells.filter((s) => s.name === "Wing trailing edge").map((s) => ({ ...s, skin }));
+    expect(edges.length).toBeGreaterThan(1);
+    for (const spec of edges) {
+      specGeo(spec).computeBoundingBox();
+      const bounds = specGeo(spec).boundingBox!;
+      const rightSide = bounds.min.z + bounds.max.z > 0;
+      expect((Shell({ spec }) as El).props.material).toBe(rightSide ? mats(SPOT_COLOR).hi : dimSolidMat(skinMat(skin)));
+    }
+    useView.setState({ spot: null });
+    for (const spec of edges) expect((Shell({ spec }) as El).props.material).toBe(skinMat(skin));
   });
 
   it("leaves the spotted surface highlighted and dims the rest of its system and the other side (5b)", () => {
@@ -161,15 +206,17 @@ describe("tanks, fuel lines and linkages dim with the rest (7c: fuel drains)", (
     ((Links({ links: { c: cable }, points: () => ({}) }) as El).props.children as El[])[0].props.material;
   const fuel = () => sysColor("fuel", theme());
 
-  it("dims them while an item is spotted", () => {
+  it.each([true, false])("dims them while an item is spotted (X-ray %s)", (xray) => {
     walkView("fuel", { names: ["Tank drain", "Collector drain"], side: 1 });
+    useView.setState({ xray });
     expect(tankLook()).toEqual([0.05, 0.12]);
-    expect(lineLook()).toEqual({ pipe: mats(fuel()).dim, dots: false });
-    expect(cableLook()).toBe(mats("#8C959C").dim);
+    expect(lineLook()).toEqual({ pipe: xray ? mats(fuel()).dim : dimSolidMat(mats(fuel()).on), dots: false });
+    expect(cableLook()).toBe(xray ? mats("#8C959C").dim : dimSolidMat(mats("#8C959C").on));
   });
 
-  it("draws them as before with no spot", () => {
+  it.each([true, false])("draws them as before with no spot (X-ray %s)", (xray) => {
     walkView("fuel", null);
+    useView.setState({ xray });
     expect(tankLook()).toEqual([0.14, 0.62]);
     expect(lineLook()).toEqual({ pipe: mats(fuel()).on, dots: true });
     expect(cableLook()).toBe(mats("#8C959C").on);

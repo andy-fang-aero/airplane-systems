@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Catalogue, SurfaceSpec } from "@/lib/catalogue";
-import { seeMat, shellMat, skinMat, solidMat } from "@/lib/materials";
+import { dimSolidMat, mats, seeMat, shellMat, skinMat, solidMat } from "@/lib/materials";
 import { V } from "@/lib/math";
 import { geoCentreZ, SPOT_COLOR, spotsAt } from "@/lib/spot";
 import { sysColor } from "@/lib/systems";
@@ -52,15 +52,18 @@ export function ControlSurface({
   const active = spotted || (!spotOn && sys !== "overview" && spec.sys.includes(sys) && !chanDim);
   const color = sysColor(spec.sys[0], theme);
   // highlighted in its own view; in X-ray the highlight is translucent so the balance weights inside show
+  const solid = !xray && spec.skin ? skinMat(spec.skin) : solidMat;
   const material = xray
     ? spotted
       ? seeMat(SPOT_COLOR)
       : active
         ? seeMat(color)
         : shellMat
-    : spec.skin
-      ? skinMat(spec.skin)
-      : solidMat;
+    : spotOn
+      ? spotted
+        ? mats(SPOT_COLOR).hi
+        : dimSolidMat(solid)
+      : solid;
   useFrame(() => {
     ref.current.quaternion.setFromAxisAngle(axis, angle(spec.key));
   });

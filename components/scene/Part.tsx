@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { animatePart } from "@/lib/anims";
 import { buildingIn, useBuiltParts } from "@/lib/build";
 import { specGeo, type Catalogue, type PartSpec, type ShellSpec } from "@/lib/catalogue";
-import { finishMat, ghostMat, mats, plateMat, seeMat, shellMat, skinMat, solidMat } from "@/lib/materials";
+import { dimSolidMat, finishMat, ghostMat, mats, plateMat, seeMat, shellMat, skinMat, solidMat } from "@/lib/materials";
 import { registerPart } from "@/lib/registry";
 import { geoCentreZ, SPOT_COLOR, spotsAt, spotsPart } from "@/lib/spot";
 import { palette, sysColor, type SysId } from "@/lib/systems";
@@ -84,9 +84,11 @@ export function Part({ spec, cat }: { spec: PartSpec; cat: Catalogue }) {
           ? all
             ? shellMat
             : ghostMat(sysColor(spec.sys[0], theme))
-          : act || !xray
-            ? mats(color).on
-            : mats(color).dim;
+          : !xray && spot
+            ? dimSolidMat(mats(color).on)
+            : act || !xray
+              ? mats(color).on
+              : mats(color).dim;
   // a ghosted fairing picks like the skin, so the wheel or brake seen through it gets the tooltip
   const pick: PickInfo | undefined = spec.name
     ? { name: spec.name, note: spec.note ?? "", color, sys: spec.sys, shell: ghost || undefined }
@@ -139,16 +141,17 @@ export function Shell({ spec }: { spec: ShellSpec }) {
   const xray = useView((x) => x.xray);
   const theme = useView((x) => x.theme);
   const spotted = useView((x) => spotsAt(x.spot, spec.name, geoCentreZ(geo)));
-  const material =
-    xray && spotted
+  const spotOn = useView((x) => !!x.spot);
+  const solid = !xray && spec.skin ? skinMat(spec.skin) : spec.finish ? finishMat[spec.finish] : solidMat;
+  const material = xray
+    ? spotted
       ? seeMat(SPOT_COLOR)
-      : xray
-        ? shellMat
-        : spec.skin
-          ? skinMat(spec.skin)
-          : spec.finish
-            ? finishMat[spec.finish]
-            : solidMat;
+      : shellMat
+    : spotOn
+      ? spotted
+        ? mats(SPOT_COLOR).hi
+        : dimSolidMat(solid)
+      : solid;
   const pick: PickInfo | undefined = spec.name
     ? { name: spec.name, note: spec.note, color: palette(theme).frame, sys: ["airframe"], shell: true }
     : undefined;

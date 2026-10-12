@@ -2,7 +2,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { mats } from "@/lib/materials";
+import { dimSolidMat, mats } from "@/lib/materials";
 import { V } from "@/lib/math";
 import { sysColor, type Chan, type SysId } from "@/lib/systems";
 import { useView } from "@/lib/view";
@@ -68,7 +68,7 @@ export function Links({
             }}
             geometry={geo}
             position={V(0, -10, 0)}
-            material={act || !xray ? mats(c).on : mats(c).dim}
+            material={!xray && spot ? dimSolidMat(mats(c).on) : act || !xray ? mats(c).on : mats(c).dim}
             userData={{ pick }}
           />
         );

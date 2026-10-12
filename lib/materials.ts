@@ -8,6 +8,19 @@ export interface MatSet {
 }
 const cache = new Map<string, MatSet>();
 
+const solidDims = new WeakMap<THREE.MeshStandardMaterial, THREE.MeshStandardMaterial>();
+/** Dim a solid-mode walk-around backdrop without exposing the internals or losing its painted skin. */
+export function dimSolidMat(base: THREE.MeshStandardMaterial) {
+  let m = solidDims.get(base);
+  if (!m) {
+    m = base.clone();
+    m.color.multiplyScalar(0.25);
+    m.emissive.multiplyScalar(0.25);
+    solidDims.set(base, m);
+  }
+  return m;
+}
+
 /** Normal / highlighted / dimmed materials for a colour. */
 export function mats(hex: string): MatSet {
   let m = cache.get(hex);

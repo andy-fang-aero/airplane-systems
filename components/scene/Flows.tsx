@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { FlowSpec } from "@/lib/catalogue";
 import { curveOf } from "@/lib/geometry";
-import { dotTex, mats } from "@/lib/materials";
+import { dimSolidMat, dotTex, mats } from "@/lib/materials";
 import { sysColor } from "@/lib/systems";
 import { useView } from "@/lib/view";
 import type { PickInfo } from "./Part";
@@ -114,7 +114,11 @@ export function Flows({
         return (
           <group key={it.f.key}>
             {it.tube && (
-              <mesh geometry={it.tube} material={act || !xray ? mats(c).on : mats(c).dim} userData={{ pick }} />
+              <mesh
+                geometry={it.tube}
+                material={!xray && spot ? dimSolidMat(mats(c).on) : act || !xray ? mats(c).on : mats(c).dim}
+                userData={{ pick }}
+              />
             )}
             <primitive object={it.pts} />
           </group>
