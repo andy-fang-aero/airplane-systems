@@ -257,44 +257,62 @@ export const WIN = {
 
 /** Surface coordinates (x, q): q is normalized arc length from belly (-1) to roof (+1).
  * This avoids the side-projection singularity at the roof wrap. */
-const arcCache = new Map<number, { points: THREE.Vector3[]; lengths: number[]; total: number }>();
+/** A station's half ring (belly to roof): the ring points' y and z, and the cumulative arc length at each. */
+interface SkinArc {
+  ys: Float64Array;
+  zs: Float64Array;
+  lengths: Float64Array;
+  total: number;
+}
+const arcCache = new Map<number, SkinArc>();
+/** Arcs kept: the hull build sweeps every station of the skin (about 7,300) from both sides, so a smaller cache rebuilt
+ * each arc about 20 times; doorHullGeo empties it when done. */
+const ARC_CACHE_SIZE = 8192; // approximate: a cache size, not a source value
 function skinArc(x: number) {
   // Keep the short, steep lip blend smooth; cabin cuts retain their existing 1-mm lookup stations.
   const resolution = x > COWL_NOSE_BLEND_X ? 10000 : 1000;
   x = Math.round(x * resolution) / resolution;
   let arc = arcCache.get(x);
   if (!arc) {
-    const points = fRing(x, 1, 240, -Math.PI / 2, Math.PI / 2, false);
-    const lengths = [0];
-    for (let i = 1; i < points.length; i++) lengths.push(lengths[i - 1] + points[i].distanceTo(points[i - 1]));
-    arc = { points, lengths, total: lengths.at(-1)! };
-    if (arcCache.size >= 256) arcCache.delete(arcCache.keys().next().value!);
+    const points = fRing(x, 1, 240, -Math.PI / 2, Math.PI / 2, false),
+      n = points.length;
+    arc = { ys: new Float64Array(n), zs: new Float64Array(n), lengths: new Float64Array(n), total: 0 };
+    for (let i = 0; i < n; i++) {
+      arc.ys[i] = points[i].y;
+      arc.zs[i] = points[i].z;
+      if (i) arc.lengths[i] = arc.lengths[i - 1] + points[i].distanceTo(points[i - 1]);
+    }
+    arc.total = arc.lengths[n - 1];
+    if (arcCache.size >= ARC_CACHE_SIZE) arcCache.delete(arcCache.keys().next().value!);
     arcCache.set(x, arc);
   }
   return arc;
 }
 export function doorSkin(x: number, q: number, side: number) {
-  const { points, lengths, total } = skinArc(x),
+  const { ys, zs, lengths, total } = skinArc(x),
     target = ((q + 1) * total) / 2;
-  let i = 1;
-  while (i < lengths.length - 1 && lengths[i] < target) i++;
-  const p = points[i - 1]
-    .clone()
-    .lerp(points[i], clamp((target - lengths[i - 1]) / (lengths[i] - lengths[i - 1]), 0, 1));
-  p.x = x;
-  p.z *= side;
-  return p;
+  // the first segment end at or past the target (the last one at most): lengths only grow
+  let i = 1,
+    hi = lengths.length - 1;
+  while (i < hi) {
+    const mid = (i + hi) >> 1;
+    if (lengths[mid] < target) i = mid + 1;
+    else hi = mid;
+  }
+  const t = clamp((target - lengths[i - 1]) / (lengths[i] - lengths[i - 1]), 0, 1);
+  // as Vector3.lerp between the two ring points
+  return new THREE.Vector3(x, ys[i - 1] + (ys[i] - ys[i - 1]) * t, (zs[i - 1] + (zs[i] - zs[i - 1]) * t) * side);
 }
 export function doorParam(p: THREE.Vector3): THREE.Vector2 {
-  const { points, lengths, total } = skinArc(p.x);
+  const { ys, lengths, total } = skinArc(p.x);
   let low = 0,
-    high = points.length - 1;
+    high = ys.length - 1;
   while (high - low > 1) {
     const middle = (low + high) >> 1;
-    if (points[middle].y < p.y) low = middle;
+    if (ys[middle] < p.y) low = middle;
     else high = middle;
   }
-  const t = clamp((p.y - points[low].y) / (points[high].y - points[low].y), 0, 1);
+  const t = clamp((p.y - ys[low]) / (ys[high] - ys[low]), 0, 1);
   return new THREE.Vector2(p.x, (2 * lerp(lengths[low], lengths[high], t)) / total - 1);
 }
 /** Lower-cowl submerged induction inlets (POH 13772-007 7-37; AMM 13773-002 Rev 7
@@ -460,6 +478,15 @@ function skinPatch(outline: THREE.Vector2[], holes: THREE.Vector2[][], side: num
   const pos: number[] = [],
     uv: number[] = [],
     normals: number[] = [];
+  // Neighbouring triangles share their corners: map each corner onto the skin, and work out its normal, once.
+  const corners = new Map<number, Map<number, { p: THREE.Vector3; normal?: THREE.Vector3 }>>();
+  const corner = (v: THREE.Vector2) => {
+    let row = corners.get(v.x);
+    if (!row) corners.set(v.x, (row = new Map()));
+    let c = row.get(v.y);
+    if (!c) row.set(v.y, (c = { p: doorSkin(v.x, v.y, side) }));
+    return c;
+  };
   const emit = (a: THREE.Vector2, b: THREE.Vector2, c: THREE.Vector2, depth = 0) => {
     const abLength = a.distanceToSquared(b),
       bcLength = b.distanceToSquared(c),
@@ -482,7 +509,7 @@ function skinPatch(outline: THREE.Vector2[], holes: THREE.Vector2[][], side: num
       }
     } else {
       const mapped = [a, b, c].map((p) => {
-        const v = doorSkin(p.x, p.y, side);
+        const v = corner(p).p;
         return new THREE.Vector3(Math.fround(v.x), Math.fround(v.y), Math.fround(v.z));
       });
       // Refinement at a curved cut can collapse a Float32 triangle into a zero-area sliver.
@@ -513,29 +540,34 @@ function skinPatch(outline: THREE.Vector2[], holes: THREE.Vector2[][], side: num
         return;
       }
       for (const v of side > 0 ? [a, b, c] : [c, b, a]) {
-        const p = doorSkin(v.x, v.y, side);
+        const at = corner(v),
+          p = at.p;
         pos.push(p.x, p.y, p.z);
-        // Smooth loft normals from the implicit superellipse, independent of triangle size.
-        const field = (x: number) => {
-          const { hw, hh, cy, nTop, nBot, tumble } = FUSE.section(x),
-            py = (p.y - cy) / hh;
-          const n = py >= 0 ? nTop : nBot,
-            w = hw * (1 - tumble * Math.max(0, py));
-          return Math.pow(Math.abs(p.z) / w, n) + Math.pow(Math.abs(py), n);
-        };
-        const { hw, hh, cy, nTop, nBot, tumble } = FUSE.section(p.x),
-          py = (p.y - cy) / hh;
-        const n = py >= 0 ? nTop : nBot,
-          w = hw * (1 - tumble * Math.max(0, py));
-        const ny =
-          (n * Math.sign(py) * Math.pow(Math.abs(py), n - 1)) / hh +
-          (py > 0 ? (n * Math.pow(Math.abs(p.z) / w, n) * tumble) / (hh * (1 - tumble * py)) : 0);
-        const nz = (n * Math.sign(p.z) * Math.pow(Math.abs(p.z) / w, n - 1)) / w;
-        const normal = new THREE.Vector3((field(p.x + 0.0001) - field(p.x - 0.0001)) / 0.0002, ny, nz).normalize();
-        normals.push(normal.x, normal.y, normal.z);
+        at.normal ??= skinNormal(p);
+        normals.push(at.normal.x, at.normal.y, at.normal.z);
         uv.push((p.x - SK.x0) / (SK.x1 - SK.x0), (p.y - SK.y0) / (SK.y1 - SK.y0));
       }
     }
+  };
+  /** Smooth loft normal at skin point `p`, from the implicit superellipse, independent of triangle size. */
+  const skinNormal = (p: THREE.Vector3) => {
+    const field = (x: number) => {
+      const { hw, hh, cy, nTop, nBot, tumble } = FUSE.section(x),
+        py = (p.y - cy) / hh;
+      const n = py >= 0 ? nTop : nBot,
+        w = hw * (1 - tumble * Math.max(0, py));
+      return Math.pow(Math.abs(p.z) / w, n) + Math.pow(Math.abs(py), n);
+    };
+    const { hw, hh, cy, nTop, nBot, tumble } = FUSE.section(p.x),
+      py = (p.y - cy) / hh;
+    const n = py >= 0 ? nTop : nBot,
+      w = hw * (1 - tumble * Math.max(0, py));
+    const ny =
+      (n * Math.sign(py) * Math.pow(Math.abs(py), n - 1)) / hh +
+      (py > 0 ? (n * Math.pow(Math.abs(p.z) / w, n) * tumble) / (hh * (1 - tumble * py)) : 0);
+    const nz = (n * Math.sign(p.z) * Math.pow(Math.abs(p.z) / w, n - 1)) / w;
+    // approximate: a central-difference step along x, not a source value
+    return new THREE.Vector3((field(p.x + 0.0001) - field(p.x - 0.0001)) / 0.0002, ny, nz).normalize();
   };
   const a = flat.attributes.position;
   for (let i = 0; i < a.count; i += 3)
@@ -610,10 +642,13 @@ const doorHullGeo = () => {
   const patches = [right, left, ...caps],
     g = new THREE.BufferGeometry();
   for (const name of ["position", "normal", "uv"]) {
-    const arrays = patches.flatMap((patch) => Array.from(patch.attributes[name].array));
-    g.setAttribute(name, new THREE.Float32BufferAttribute(arrays, right.attributes[name].itemSize));
+    const arrays = patches.map((patch) => Float32Array.from(patch.attributes[name].array)),
+      all = new Float32Array(arrays.reduce((n, a) => n + a.length, 0));
+    arrays.reduce((at, a) => (all.set(a, at), at + a.length), 0);
+    g.setAttribute(name, new THREE.Float32BufferAttribute(all, right.attributes[name].itemSize));
   }
   for (const patch of patches) patch.dispose();
+  arcCache.clear();
   return g;
 };
 export const fuselageGeo = () => openExhaustExits(doorHullGeo());

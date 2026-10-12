@@ -240,13 +240,73 @@ button {
   display: block;
   touch-action: none;
 }
-.loading {
+/* loading overlay (components/Loader.tsx): centred while the scene is built, a bar at the top while systems are added */
+.loader {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
+  pointer-events: none;
+}
+.loader-later {
+  animation: loader-in 0.25s ease 0.2s both; /* a quick rebuild (another airplane) never flashes it */
+}
+@keyframes loader-in {
+  from {
+    opacity: 0;
+  }
+}
+.loader-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--rule);
   font-size: 13px;
   color: var(--muted);
+}
+.loader-card b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.loader-bar {
+  inset: 52px auto auto 12px; /* under the toolbar's row */
+  place-items: start;
+}
+.loader-bar .loader-card {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.loader-skip {
+  pointer-events: auto;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1px 8px;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+.loader progress {
+  width: 120px;
+  height: 6px;
+  accent-color: var(--accent);
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--rule);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .pin {
   position: absolute;
@@ -1026,6 +1086,9 @@ button.chip:hover {
   .panel-inner {
     padding: 18px 16px 40px;
   }
+  .loader-bar {
+    top: 100px; /* the toolbar wraps to two rows */
+  }
   .stage-foot {
     flex-direction: column-reverse;
     align-items: flex-start;
@@ -1074,5 +1137,9 @@ button.chip:hover {
   .tour-spot,
   .tour-card {
     transition: none;
+  }
+  .spinner,
+  .loader-later {
+    animation: none;
   }
 }

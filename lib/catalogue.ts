@@ -16,6 +16,22 @@ import type { Chan, SysId } from "./systems";
 export interface StudyGroups {}
 export type StudyGroup = keyof StudyGroups & string;
 
+/** Geometry is built once per spec and kept: the scene and a progressive build share it. */
+const geoCache = new WeakMap<object, THREE.BufferGeometry>();
+export function specGeo(spec: { geo: () => THREE.BufferGeometry }) {
+  let g = geoCache.get(spec);
+  if (!g) {
+    g = spec.geo();
+    geoCache.set(spec, g);
+  }
+  return g;
+}
+
+/** Use `g`, built elsewhere (a worker) by `spec.geo`'s own code, as `spec`'s geometry, unless it has one already. */
+export function primeGeo(spec: { geo: () => THREE.BufferGeometry }, g: THREE.BufferGeometry) {
+  if (!geoCache.has(spec)) geoCache.set(spec, g);
+}
+
 /** Rejects a `groups` tag outside `allowed` at registration, for specs the types don't reach (casts, JSON). */
 export function checkGroups(id: string, groups: readonly string[] | undefined, allowed: readonly string[]) {
   const bad = groups?.find((group) => !allowed.includes(group));

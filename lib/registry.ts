@@ -22,6 +22,11 @@ export function registerPart(name: string, mesh: THREE.Mesh, pinned: boolean) {
   };
   mounted.set(name, [...(mounted.get(name) ?? []), { mesh, pinned }]);
   pick();
+  // "tap to locate" asked for this part before it was mounted (a progressive build still adding it): go there now
+  if (waiting === name) {
+    waiting = null;
+    focusPart(name);
+  }
   return () => {
     const rest = (mounted.get(name) ?? []).filter((e) => e.mesh !== mesh);
     mounted.set(name, rest);
@@ -30,15 +35,25 @@ export function registerPart(name: string, mesh: THREE.Mesh, pinned: boolean) {
 }
 export const view: { camera: THREE.Camera | null; target: THREE.Vector3 | null } = { camera: null, target: null };
 
-/** Fly the camera to a named part (keeping the current viewing direction) and flash it. */
+/** A part "tap to locate" asked for that is not mounted yet: focused as soon as it is. */
+let waiting: string | null = null;
+// Navigation and Reset view supersede a locate request, even if the user returns before the part mounts.
+useView.subscribe((next, previous) => {
+  if (next.ac !== previous.ac || next.sys !== previous.sys || next.cam !== previous.cam) waiting = null;
+});
+
+/** Fly the camera to a named part (keeping the current viewing direction) and flash it; a part not mounted yet, once it is. */
 export function focusPart(name: string) {
   // phones: the list is far below the 3D view
   revealStage();
   flashFocus(name);
   const o = partObjects.get(name);
+  waiting = o ? null : name;
   if (!o) return;
   const g = o.geometry;
   if (!g.boundingSphere) g.computeBoundingSphere();
+  // a part mounted this moment has no world matrix from a render yet
+  o.updateWorldMatrix(true, false);
   const c = o.localToWorld(g.boundingSphere!.center.clone());
   const dir =
     view.camera && view.target
